@@ -2,6 +2,14 @@
 // each stored as { cur, cap }. Physicals (STR/SPD/STM) do not count toward OVR.
 
 import NAMES from '../data/names.json' with { type: 'json' };
+import NAMES2 from '../data/names2.json' with { type: 'json' };
+
+// Name pools. v1 = the original ~150 first / ~200 last names; v2 = ~1,500 first / ~3,200 last (SSA boys' names
+// 1990-2008 and Census surnames weighted to a D1 roster). Worlds rebuild from the seed, so a save keeps the pool its
+// players were made with: the campaign switches pools around generation (see useNames in campaign.js).
+// Picking costs one rng draw either way, so the pool never changes ratings, only names.
+let POOL = NAMES2;
+export function useNames(v) { POOL = v === 1 ? NAMES : NAMES2; }
 
 export const SKILLS = ['LAY', 'DNK', 'INS', 'MID', 'TPT', 'FTS', 'DRB', 'PAS', 'ORE', 'DRE', 'STL', 'BLK'];
 export const PHYS = ['STR', 'SPD', 'STM'];
@@ -113,7 +121,7 @@ export function ovr(player, which = 'cur') {
 }
 
 function pickName(rng) {
-  return { fn: rng.pick(NAMES.first), ln: rng.pick(NAMES.last) };
+  return { fn: rng.pick(POOL.first), ln: rng.pick(POOL.last) };
 }
 
 function pickHome(rng, biasState) {

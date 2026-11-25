@@ -9,7 +9,7 @@ import { Game } from '../engine/game.js';
 import { packPlayer, unpackPlayer } from '../pack.js';
 import { DRILLS, TRAIN_COST, trainPlayer, applyTraining } from '../training.js';
 import { advanceRoster, openScholarships, MAX_ROSTER } from '../roster.js';
-import { ovr, rawOvr, fullName, SKILLS, OVR_SHIFT } from '../player.js';
+import { ovr, rawOvr, fullName, SKILLS, OVR_SHIFT, useNames } from '../player.js';
 import { generateRecruitClass, CLASS_SIZE } from './recruits.js';
 import { computeAwards } from '../awards.js';
 import * as T from '../tourney.js';
@@ -133,12 +133,14 @@ function freshSeasonState(base) {
     scoutAt: null, gameToday: null, burned: [], knowledge: {}, interest: {}, offers: {}, commits: {},
     visits: {}, phonedToday: [], calls: {}, aiTargets: {}, log: [], over: false, userGames: {},
     train: {}, trainedToday: [], teamTrainedToday: false,
+    namesFrom: base.namesFrom, // name pool switch (see hydrate); carried across seasons
     scouted: base.scouted || {}, // pid -> 1 once you've seen his potential (in person); kept across seasons
   };
 }
 
 export function createCampaign({ seed = 2026, schoolId, scout }) {
   const state = freshSeasonState({ seed, schoolId, scout, year: 2026 });
+  state.namesFrom = 0; // new careers use the big name pool everywhere
   const ctx = hydrate(state);
   state.scoutAt = ctx.school.state;
   setupAI(ctx);
@@ -148,7 +150,13 @@ export function createCampaign({ seed = 2026, schoolId, scout }) {
 
 // Rebuild everything derivable from the seed around a saved state.
 export function hydrate(state) {
+  // Saves made before the big name pool keep every name they already have: their starting world and every recruit
+  // class already generated use the old pool. Recruit classes from the season after next (namesFrom) use the new one.
+  if (state.namesFrom == null) state.namesFrom = (state.year || 2026) + 2;
+  const oldWorld = state.namesFrom !== 0;
+  useNames(oldWorld ? 1 : 2);
   const world = createWorld(state.seed);
+  useNames(2);
   if (state.year) world.year = state.year;
   if (state.rosters) {
     for (const [id, arr] of Object.entries(state.rosters)) if (world.teams[id]) world.teams[id].roster = arr.map(unpackPlayer);
@@ -162,7 +170,9 @@ export function hydrate(state) {
   applyTraining(world.teams[state.schoolId].roster, state.train);
   const season = newSeasonState(world, state.seed);
   const school = world.teams[state.schoolId].school;
+  useNames(state.namesFrom && world.year + 1 < state.namesFrom ? 1 : 2);
   const cls = generateRecruitClass(state.seed, world.year + 1);
+  useNames(2); // anything generated from here on (walk-ons, new players) uses the big pool
   const byId = Object.fromEntries(cls.recruits.map((r) => [r.id, r]));
   const schools = Object.fromEntries(SCHOOL_DATA.schools.map((s) => [s.id, s]));
   const slotsFor = (id) => openScholarships(world.teams[id].roster);
