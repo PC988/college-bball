@@ -845,10 +845,16 @@ export function simMMRound(ctx) {
   if (mm.champ) {
     const name = ctx.world.teams[mm.champ].school.name;
     const h = ctx.state.history.at(-1);
-    if (h) { h.mm = T.tourneyResult(mm, ctx.state.schoolId); h.champ = name; }
+    if (h) { h.mm = T.tourneyResult(mm, ctx.state.schoolId); h.champ = name; Object.assign(h, T.seasonRecord(ctx)); h.mmAw = T.mmAwards(ctx); }
     log(ctx, `${name} are national champions!${mm.champ === ctx.state.schoolId ? ' That is YOUR program. Cut down the nets.' : ''}`, 'event');
   }
   return { ok: true, msg: mm.champ ? 'Tournament over' : `${T.ROUND_NAMES[r]} done` };
+}
+// History rows, with the finished season filled in for saves made before the History page recorded it.
+export function leagueHistory(ctx) {
+  const st = ctx.state, h = st.history.at(-1);
+  if (h && st.mm?.champ && h.year === st.year && !h.ff) { Object.assign(h, T.seasonRecord(ctx)); h.mmAw = T.mmAwards(ctx); }
+  return st.history;
 }
 export function simMMAll(ctx) { while (ctx.state.mm && !ctx.state.mm.champ) simMMRound(ctx); return { ok: true, msg: 'Tournament over' }; }
 

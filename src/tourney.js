@@ -95,6 +95,15 @@ export function recordMM(ctx, gm) {
   const g = ctx.state.mm.games[gm.mmIdx];
   g.s = [res.home.score, res.away.score];
   if (g.a === ctx.state.schoolId || g.b === ctx.state.schoolId) ctx.state.mm.box[gm.mmIdx] = compactResult(res);
+  // tournament lines for the March Madness awards: pid -> [sid, GP, PTS, REB, AST, STL, BLK, FGM, FGA, TPM, TPA, FTM, FTA, lastRound]
+  const ps = (ctx.state.mm.ps ||= {});
+  for (const side of [res.home, res.away]) for (const p of side.players) {
+    if (!p.MIN) continue;
+    const t = (ps[p.id] ||= [side.schoolId, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    const add = [1, p.PTS, p.ORB + p.DRB, p.AST, p.STL, p.BLK, p.FGM, p.FGA, p.TPM, p.TPA, p.FTM, p.FTA];
+    add.forEach((v, k) => { t[k + 1] += v; });
+    t[13] = g.r;
+  }
   return res;
 }
 export const mmBox = (ctx, idx) => { const g = ctx.state.mm.games[idx]; const c = ctx.state.mm.box[idx]; return c ? expandCompact(ctx.world, g.a, g.b, c) : null; };
@@ -115,6 +124,50 @@ export function playRound(ctx) {
   buildNext(mm);
 }
 export function finishTourney(ctx) { while (ctx.state.mm && !ctx.state.mm.champ) playRound(ctx); }
+
+// ---------- March Madness awards ----------
+// Most Outstanding Player and a five-man All-Tournament Team, picked from the Final Four teams (as the NCAA does),
+// on total production with a bump for going deeper. Returns save-friendly rows like computeAwards.
+export function mmAwards(ctx) {
+  const mm = ctx.state.mm;
+  if (!mm?.champ || !mm.ps) return [];
+  const ff = new Set(mm.games.filter((g) => g.r === 5).flatMap((g) => [g.a, g.b]));
+  const find = (sid, pid) => ctx.world.teams[sid]?.roster.find((p) => p.id === pid);
+  const rows = Object.entries(mm.ps).filter(([, t]) => ff.has(t[0])).map(([pid, t]) => {
+    const [sid, GP, PTS, REB, AST, STL, BLK, FGM, FGA] = t;
+    const prod = PTS + 0.8 * REB + 1.1 * AST + 1.5 * STL + 1.3 * BLK - 0.4 * (FGA - FGM);
+    const deep = sid === mm.champ ? 1.25 : mm.games.some((g) => g.r === 6 && (g.a === sid || g.b === sid)) ? 1.12 : 1;
+    return { pid, sid, t, score: prod * deep, p: find(sid, pid) };
+  }).filter((x) => x.p).sort((a, b) => b.score - a.score);
+  const line = ({ t }) => { const g = t[1] || 1, f = (v) => (v / g).toFixed(1); return `${f(t[2])} PPG · ${f(t[3])} RPG · ${f(t[4])} APG · ${t[8] ? Math.round((t[7] / t[8]) * 100) : 0}% FG in ${t[1]} games`; };
+  const entry = (award, x) => ({ award, group: 'mm', pid: x.pid, name: `${x.p.fn} ${x.p.ln}`, pos: x.p.pos, cls: x.p.cls, sid: x.sid, school: ctx.world.teams[x.sid].school.name, line: line(x) });
+  const out = [];
+  if (rows[0]) out.push(entry('Most Outstanding Player', rows[0]));
+  rows.slice(0, 5).forEach((x) => out.push(entry('All-Tournament Team', x)));
+  // top scorer of the whole field, any team
+  const sc = Object.entries(mm.ps).map(([pid, t]) => ({ pid, sid: t[0], t, p: find(t[0], pid) })).filter((x) => x.p).sort((a, b) => b.t[2] - a.t[2] || a.t[1] - b.t[1])[0];
+  if (sc) out.push({ ...entry('Tournament scoring leader', sc), line: `${sc.t[2]} points in ${sc.t[1]} games` });
+  return out;
+}
+// The season's league record for the History page: champion, title game, Final Four, final Top 25.
+export function seasonRecord(ctx) {
+  const mm = ctx.state.mm, name = (sid) => ctx.world.teams[sid]?.school.name || '?';
+  const fin = mm.games.find((g) => g.r === 6);
+  const lose = fin && (winner(fin) === fin.a ? fin.b : fin.a);
+  const pr = powerRatings(ctx.world, ctx.season), rec = standings(ctx.world, ctx.season);
+  // tournament wins count toward the final record
+  const tw = {}, tl = {};
+  for (const g of mm.games) if (g.s) { const w = winner(g); const l = w === g.a ? g.b : g.a; tw[w] = (tw[w] || 0) + 1; tl[l] = (tl[l] || 0) + 1; }
+  // final poll: season power rating plus credit for every tournament win (title run weighs most)
+  const fp = (sid) => pr[sid] + 1.6 * (tw[sid] || 0) + (sid === mm.champ ? 3 : 0);
+  const top = Object.keys(pr).sort((a, b) => fp(b) - fp(a)).slice(0, 25);
+  return {
+    champSid: mm.champ,
+    final: fin ? { w: name(mm.champ), l: name(lose), ws: Math.max(...fin.s), ls: Math.min(...fin.s), wseed: seedOf(mm, mm.champ), lseed: seedOf(mm, lose) } : null,
+    ff: mm.games.filter((g) => g.r === 5).flatMap((g) => [g.a, g.b]).map((sid) => ({ sid, name: name(sid), seed: seedOf(mm, sid) })),
+    top25: top.map((sid) => [sid, name(sid), rec[sid].W + (tw[sid] || 0), rec[sid].L + (tl[sid] || 0)]),
+  };
+}
 
 // How far a team went: 'Champion', 'Lost in the Sweet 16', or null if not in the field.
 export function tourneyResult(mm, sid) {

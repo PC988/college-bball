@@ -967,6 +967,8 @@ function bindPage(root) {
   on('[data-ldmode]', (b) => { ui.ldMode = b.dataset.v; render(); });
   on('[data-ldcat]', (b) => { ui.ldCat = b.dataset.ldcat; render(); });
   on('[data-awyear]', (b) => { ui.awYear = b.dataset.awyear; render(); });
+  on('[data-hiyear]', (b) => { ui.hiYear = b.dataset.hiyear; render(); });
+  on('[data-hiaw]', (b) => { ui.awYear = b.dataset.hiaw; ui.seasonView = 'awards'; render(); });
 }
 
 // Minutes plan: the coach's numbers if set, else the automatic plan from rotation depth.
@@ -1087,8 +1089,29 @@ function renderSeason() {
   }
   if (v === 'mm' && ctx.state.mm) body = bracketHtml();
   if (v === 'history') {
-    const h = ctx.state.history;
-    body = `<div class="panel">${h.length ? `<table class="stand"><tr><th>Season</th><th class="n">Record</th><th class="n">Conf</th><th class="n">Class</th><th>March</th></tr>${h.map((x) => `<tr><td>${x.year}-${String(x.year + 1).slice(2)}</td><td class="n">${x.W}-${x.L}</td><td class="n">${x.cW}-${x.cL}</td><td class="n">${x.signed}/${x.slots}</td><td class="muted">${esc(x.mm ? x.mm.replace('Lost in the ', '').replace('National champion', '🏆 Champs') : '—')}</td></tr>`).join('')}</table>` : '<div class="note">Your first season is in progress.</div>'}</div>`;
+    const h = C.leagueHistory(ctx);
+    const done = h.filter((x) => x.champ || (x.awards && x.awards.length));
+    const yr = Number(ui.hiYear ?? done.at(-1)?.year);
+    const x = done.find((d) => d.year === yr);
+    const sy = (y) => `${y}-${String(y + 1).slice(2)}`;
+    const who = (a) => (findPlayer(a.pid) ? pname(a.pid, esc(a.name)) : esc(a.name));
+    const arow = (a, label = a.award) => `<tr class="${a.sid === ctx.state.schoolId ? 'me' : ''}"><td>${label ? `<div class="aw-l">${esc(label)}</div>` : ''}${who(a)} <span class="muted">${a.pos} · ${a.cls} · ${esc(a.school)}</span><div class="muted aw-s">${esc(a.line)}</div></td></tr>`;
+    let season = '';
+    if (x) {
+      const mmA = x.mmAw || [], aw = x.awards || [];
+      const f = x.final;
+      season = `${x.champ ? `<div class="champ">🏆 ${esc(x.champ)}</div>` : ''}
+        ${f ? `<div class="note" style="text-align:center">(${f.wseed}) ${esc(f.w)} ${f.ws}, (${f.lseed}) ${esc(f.l)} ${f.ls} in the title game</div>` : ''}
+        ${x.ff ? `<div class="panel"><div class="kick">Final Four</div><table class="stand">${x.ff.slice().sort((p, q) => (q.sid === x.champSid) - (p.sid === x.champSid) || (f && q.name === f.l) - (f && p.name === f.l)).map((t) => `<tr class="${t.sid === ctx.state.schoolId ? 'me' : ''}"><td>(${t.seed}) ${esc(t.name)}</td><td class="n muted">${t.sid === x.champSid ? 'Champion' : f && t.name === f.l ? 'Runner-up' : 'Semifinal'}</td></tr>`).join('')}</table></div>` : ''}
+        ${mmA.length ? `<div class="panel"><div class="kick">March Madness awards</div><table class="stand aw">${mmA.filter((a) => a.award !== 'All-Tournament Team').map((a) => arow(a)).join('')}</table>
+          <div class="kick" style="margin-top:8px">All-Tournament Team</div><table class="stand aw">${mmA.filter((a) => a.award === 'All-Tournament Team').map((a) => arow(a, '')).join('')}</table></div>` : x.champ ? '<div class="note">March Madness awards started being recorded after this tournament.</div>' : ''}
+        ${aw.length ? `<div class="panel"><div class="kick">National awards</div><table class="stand aw">${aw.filter((a) => a.group === 'major').map((a) => arow(a)).join('')}</table>
+          <div class="kick" style="margin-top:8px">All-America First Team</div><table class="stand aw">${aw.filter((a) => a.award.startsWith('All-America First')).map((a) => arow(a, '')).join('')}</table>
+          <button class="btn ghost" data-hiaw="${x.year}" style="margin-top:8px">Every award from ${sy(x.year)} ›</button></div>` : ''}
+        ${x.top25 ? `<div class="panel"><div class="kick">Final Top 25 · after March Madness</div><table class="stand"><tr><th>#</th><th>Team</th><th class="n">Record</th></tr>${x.top25.map(([sid, n, W, L], i) => `<tr class="${sid === ctx.state.schoolId ? 'me' : ''}"><td>${i + 1}</td><td>${esc(n)}${sid === x.champSid ? ' 🏆' : ''}</td><td class="n">${W}-${L}</td></tr>`).join('')}</table></div>` : ''}`;
+    }
+    body = `${done.length ? `<div class="filters">${done.map((d) => `<button data-hiyear="${d.year}" class="${d.year === yr ? 'on' : ''}">${sy(d.year)}</button>`).join('')}</div>${season}` : '<div class="note">Champions, rankings and award winners show up here once a season ends.</div>'}
+      <div class="panel"><div class="kick">Your program</div>${h.length ? `<table class="stand"><tr><th>Season</th><th class="n">Record</th><th class="n">Conf</th><th class="n">Class</th><th>March</th></tr>${h.map((x) => `<tr><td>${x.year}-${String(x.year + 1).slice(2)}</td><td class="n">${x.W}-${x.L}</td><td class="n">${x.cW}-${x.cL}</td><td class="n">${x.signed}/${x.slots}</td><td class="muted">${esc(x.mm ? x.mm.replace('Lost in the ', '').replace('National champion', '🏆 Champs') : '—')}</td></tr>`).join('')}</table>` : '<div class="note">Your first season is in progress.</div>'}</div>`;
   }
   root.innerHTML = `<h2>${ctx.state.year}-${String(ctx.state.year + 1).slice(2)} season</h2><div class="filters sv">${[['schedule', 'Schedule'], ['standings', 'Standings'], ['top25', 'Top 25'], ['leaders', 'Leaders'], ['awards', 'Awards']].concat(ctx.state.mm ? [['mm', 'March Madness']] : [], [['history', 'History']]).map(([k, l]) => `<button data-sv="${k}" data-v="${k}" class="${k === v ? 'on' : ''}">${l}</button>`).join('')}</div>${body}`;
   bindPage(root);
@@ -1113,6 +1136,16 @@ function sheetBox() {
 
 // ---------- bracket ----------
 function openBracket(stay) { ui.seasonView = 'mm'; if (!stay || ctx.state.mm.champ) setTab('season'); else render(); }
+// Most Outstanding Player + All-Tournament Team, once the title game is over.
+function mmAwardsHtml() {
+  const h = C.leagueHistory(ctx).at(-1);
+  const list = (h && h.year === ctx.state.year && h.mmAw) || [];
+  if (!list.length) return '';
+  const who = (a) => (findPlayer(a.pid) ? pname(a.pid, esc(a.name)) : esc(a.name));
+  const row = (a, label = a.award) => `<tr class="${a.sid === ctx.state.schoolId ? 'me' : ''}"><td>${label ? `<div class="aw-l">${esc(label)}</div>` : ''}${who(a)} <span class="muted">${a.pos} · ${esc(a.school)}</span><div class="muted aw-s">${esc(a.line)}</div></td></tr>`;
+  return `<div class="panel"><div class="kick">March Madness awards</div><table class="stand aw">${list.filter((a) => a.award !== 'All-Tournament Team').map((a) => row(a)).join('')}</table>
+    <div class="kick" style="margin-top:8px">All-Tournament Team</div><table class="stand aw">${list.filter((a) => a.award === 'All-Tournament Team').map((a) => row(a, '')).join('')}</table></div>`;
+}
 function bracketHtml() {
   const mm = ctx.state.mm, me = ctx.state.schoolId;
   const maxR = mm.champ ? 6 : mm.round;
@@ -1126,7 +1159,7 @@ function bracketHtml() {
   const games = mm.games.map((g, i) => [g, i]).filter(([g]) => g.r === r);
   const groups = r >= 5 ? [['', games]] : MM_REGIONS.map((n, k) => [n, games.filter(([g]) => g.reg === k)]).filter(([, l]) => l.length);
   return `<div class="filters">${ROUND_NAMES.slice(0, maxR + 1).map((n, k) => `<button data-mmr="${k}" class="${k === r ? 'on' : ''}">${n.replace('National Championship', 'Title').replace('Round of ', 'R')}</button>`).join('')}</div>
-    ${mm.champ ? `<div class="champ">🏆 ${esc(ctx.world.teams[mm.champ].school.name)}</div>` : ''}
+    ${mm.champ ? `<div class="champ">🏆 ${esc(ctx.world.teams[mm.champ].school.name)}</div>${mmAwardsHtml()}` : ''}
     ${groups.map(([n, l]) => `<div class="panel">${n ? `<div class="kick">${n}</div>` : `<div class="kick">${ROUND_NAMES[r]}</div>`}${l.map(([g, i]) => row(g, i)).join('')}</div>`).join('')}`;
 }
 
