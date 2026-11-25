@@ -621,8 +621,13 @@ function sheetRecruit() {
     ${SKILLS.map((s) => rateRow(s, k.r[s])).join('')}
     ${PHYS.map((s) => rateRow(s, k.r[s], 'phys')).join('')}
     ${rateRow('Potential', k.pot, 'pot')}
-    <div class="sec">Personality · calls and visits reveal these</div>
-    ${TRAIT_KEYS.map((t) => { const kn = v.traits.find((x) => x.key === t); return `<div class="trait"><span>${esc(TRAIT_LABELS[t])}</span><b class="${kn ? '' : 'q'}">${kn ? esc(kn.value) : '???'}</b></div>`; }).join('')}
+    <div class="sec">Personality · calls and visits reveal these · bar = how well ${esc(ctx.school.name)} fits him</div>
+    ${TRAIT_KEYS.map((t) => {
+      const kn = v.traits.find((x) => x.key === t);
+      const f = kn ? C.traitFit(ctx, r, t) : null;
+      const bar = f ? `<div class="tfit" title="${esc(f.why)}"><i style="width:${Math.max(6, Math.round(f.v * 100))}%;background:hsl(${Math.round(Math.max(0, Math.min(1, (f.v - 0.35) / 0.6)) * 120)},70%,45%)"></i></div><small class="tw">${esc(f.why)}</small>` : '';
+      return `<div class="trait ${f ? 'has' : ''}"><span>${esc(TRAIT_LABELS[t])}</span><b class="${kn ? '' : 'q'}">${kn ? esc(kn.value) : '???'}</b>${bar}</div>`;
+    }).join('')}
     <div class="sec">Offers</div>
     ${v.schools.length ? v.schools.map((s, i) => `<div class="offer"><div class="row1"><span>${esc(s.name)}${s.mine ? ' (you)' : ''}</span><b>${level(s, i)}</b></div><div class="ibar ${s.mine ? 'mine' : ''}"><i style="width:${Math.min(100, (s.v / maxV) * 100)}%"></i></div></div>`).join('') : '<div class="note">No offers yet.</div>'}`;
 }

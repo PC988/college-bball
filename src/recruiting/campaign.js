@@ -92,6 +92,30 @@ function fitRaw(recruit, school) {
   return clamp(f, 0.3, 2.2) * prestigeGate(recruit, school);
 }
 
+// How well YOUR school matches one personality trait: 0 = poor fit (red) .. 1 = strong fit (green), plus a short why.
+// A trait he barely cares about fits any school. Work ethic is about him, not you, so it has no fit (null).
+export function traitFit(ctx, r, key) {
+  const t = r.traits, sc = ctx.school;
+  const care = (v) => clamp((v / 100 - 0.15) / 0.65, 0, 1); // below ~15 he does not care, ~80+ it is everything
+  const blend = (w, m) => clamp(1 - w * (1 - m), 0, 1);
+  switch (key) {
+    case 'sizePref': return t.sizePref === 'any' ? { v: 0.8, why: 'Any size works' } : { v: t.sizePref === sc.size ? 1 : 0.1, why: `You are a ${sc.size} school` };
+    case 'academicFocus': return { v: blend(care(t.academicFocus), clamp((sc.academic - 40) / 50, 0, 1)), why: `Your academics: ${sc.academic}` };
+    case 'partyFocus': return { v: blend(care(t.partyFocus), clamp(sc.party / 90, 0, 1)), why: `Your social life: ${sc.party}` };
+    case 'religious': return t.religious ? { v: sc.religious ? 1 : 0.05, why: sc.religious ? 'You are a religious school' : 'You are not a religious school' } : { v: 0.85, why: "Doesn't matter to him" };
+    case 'homeLoyalty': {
+      const same = r.state === sc.state, miles = same ? 0 : milesBetween(r.state, sc.state);
+      return { v: blend(care(t.homeLoyalty), same ? 1 : 1 - Math.min(1, miles / 2000)), why: same ? 'Same state as you' : `${Math.round(miles / 10) * 10} miles from you` };
+    }
+    case 'wantsNIL': return { v: blend(care(t.wantsNIL), Math.min(1, sc.nilBudget / 2000)), why: `Your NIL budget: $${sc.nilBudget >= 1000 ? (sc.nilBudget / 1000).toFixed(1) + 'M' : sc.nilBudget + 'K'}` };
+    case 'wantsPlayingTime': {
+      const n = ctx.world.teams[ctx.state.schoolId].roster.filter((p) => !p.walkOn && p.cls !== 'SR' && p.pos === r.pos).length;
+      return { v: blend(care(t.wantsPlayingTime), n <= 1 ? 1 : n === 2 ? 0.55 : 0.2), why: `You return ${n} ${r.pos}${n === 1 ? '' : 's'}` };
+    }
+    default: return null;
+  }
+}
+
 // Recruits far above a school's level barely listen to it.
 export function prestigeGate(recruit, school) {
   const c = desiredRank(school.prestige) * 0.2;
