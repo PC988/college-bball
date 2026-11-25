@@ -14,6 +14,7 @@ import { generateRecruitClass, CLASS_SIZE } from './recruits.js';
 import { computeAwards } from '../awards.js';
 import * as T from '../tourney.js';
 import { runCombine } from '../combine.js';
+import { hsStats } from '../hsstats.js';
 import { initialKnowledge, applyFilm, applyExact, applyLive, revealTraits, TRAIT_LABELS, describeTrait } from './scouting.js';
 
 export const DAYS = 32;
@@ -134,6 +135,7 @@ function freshSeasonState(base) {
     visits: {}, phonedToday: [], calls: {}, aiTargets: {}, log: [], over: false, userGames: {},
     train: {}, trainedToday: [], teamTrainedToday: false,
     namesFrom: base.namesFrom, // name pool switch (see hydrate); carried across seasons
+    careers: base.careers || {}, // pid -> season rows, see recordCareers
     scouted: base.scouted || {}, // pid -> 1 once you've seen his potential (in person); kept across seasons
   };
 }
@@ -904,12 +906,58 @@ export function offseasonPreview(ctx, cuts = []) {
 }
 
 // ---------- offseason: graduation, draft, cuts, signees join, walk-ons, next season ----------
+// ---------- career stats ----------
+// state.careers[pid] = rows, oldest first. College row: [year, GP, MIN, PTS, REB, AST, STL, BLK, FGM, FGA, TPM, TPA, FTM, FTA, mine]
+// (season totals, ints; mine = 1 if he played it for you). HS row: ['HS', GP, PPG*10, RPG*10, APG*10, SPG*10, BPG*10, FG%, 3P% or -1, FT%].
+// Written at the end of each season. Players who leave college are dropped unless they played for you, to keep the save small.
+export const CAREER_HS = 'HS';
+function hsRow(ctx, r) {
+  const mates = (ctx.hsTeams[r.hsTeam]?.players || []).filter((id) => id !== r.id).map((id) => ctx.byId[id]).filter(Boolean);
+  const h = hsStats(r, mates, 32);
+  const t = (v) => Math.round(v * 10);
+  return [CAREER_HS, h.gp, t(h.ppg), t(h.rpg), t(h.apg), t(h.spg), t(h.bpg), Math.round(h.fg * 100), h.tp == null ? -1 : Math.round(h.tp * 100), Math.round(h.ft * 100)];
+}
+function recordCareers(ctx) {
+  const st = ctx.state;
+  st.careers ||= {};
+  const ps = ctx.season.playerStats || {};
+  for (const [sid, t] of Object.entries(ctx.world.teams)) for (const p of t.roster) {
+    const s = ps[p.id];
+    if (!s || !s.GP) continue;
+    const rows = (st.careers[p.id] ||= []);
+    if (rows.some((r) => r[0] === st.year)) continue;
+    rows.push([st.year, s.GP, Math.round(s.MIN), s.PTS, s.ORB + s.DRB, s.AST, s.STL, s.BLK, s.FGM, s.FGA, s.TPM, s.TPA, s.FTM, s.FTA, sid === st.schoolId ? 1 : 0]);
+  }
+  // incoming freshmen bring their HS senior year
+  for (const sid of Object.keys(ctx.world.teams)) for (const rid of commitsFor(ctx, sid)) {
+    const r = ctx.byId[rid];
+    if (r && !st.careers[rid]) st.careers[rid] = [hsRow(ctx, r)];
+  }
+}
+function pruneCareers(ctx) {
+  const st = ctx.state;
+  const live = new Set();
+  for (const t of Object.values(ctx.world.teams)) for (const p of t.roster) live.add(p.id);
+  for (const [pid, rows] of Object.entries(st.careers || {})) if (!live.has(pid) && !rows.some((r) => r[14] === 1)) delete st.careers[pid];
+}
+// His rows plus the season in progress, for the player card.
+export function careerFor(ctx, pid) {
+  const rows = (ctx.state.careers?.[pid] || []).slice();
+  const s = (ctx.season.playerStats || {})[pid];
+  if (s && s.GP && !rows.some((r) => r[0] === ctx.state.year)) {
+    const sid = Object.keys(ctx.world.teams).find((k) => ctx.world.teams[k].roster.some((p) => p.id === pid));
+    rows.push([ctx.state.year, s.GP, Math.round(s.MIN), s.PTS, s.ORB + s.DRB, s.AST, s.STL, s.BLK, s.FGM, s.FGA, s.TPM, s.TPA, s.FTM, s.FTA, sid === ctx.state.schoolId ? 1 : 0, 'live']);
+  }
+  return rows;
+}
+
 export function advanceSeason(ctx, { cuts = [] } = {}) {
   const st = ctx.state;
   if (!st.over) return { ok: false, msg: 'Finish the season first.' };
   draftFor(ctx);
   if (st.mm && !st.mm.champ) simMMAll(ctx);
   if (st.mm && !st.nba) { for (const d of Object.values(st.draft || {})) if (d.status === 'declared') d.status = 'gone'; startDraft(ctx); }
+  recordCareers(ctx);
   const rng = makeRng(`${st.seed}:offseason:${st.year}`);
   let userLog = null;
   const LEAVES = new Set(['gone', 'drafted', 'declared']);
@@ -930,6 +978,7 @@ export function advanceSeason(ctx, { cuts = [] } = {}) {
     const log_ = advanceRoster(t, rng, incoming);
     if (sid === st.schoolId) userLog = { ...log_, drafted: draftedUser, cutByYou: cutUser };
   }
+  pruneCareers(ctx);
   const rosters = Object.fromEntries(Object.entries(ctx.world.teams).map(([id, t]) => [id, t.roster.map(packPlayer)]));
   const ids = new Set(ctx.world.teams[st.schoolId].roster.map((p) => p.id));
   const rotation = (st.tactics.rotation || []).filter((id) => ids.has(id));

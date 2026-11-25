@@ -1273,7 +1273,8 @@ function sheetPlayer() {
     <div class="sec">Season averages</div>
     <div class="facts"><div class="fact"><div class="k">PPG</div><div class="v">${per(s?.PTS || 0)}</div></div><div class="fact"><div class="k">RPG</div><div class="v">${per((s?.ORB || 0) + (s?.DRB || 0))}</div></div><div class="fact"><div class="k">APG</div><div class="v">${per(s?.AST || 0)}</div></div></div>
     <div class="facts"><div class="fact"><div class="k">SPG</div><div class="v">${per(s?.STL || 0)}</div></div><div class="fact"><div class="k">BPG</div><div class="v">${per(s?.BLK || 0)}</div></div><div class="fact"><div class="k">MPG</div><div class="v">${per(s?.MIN || 0)}</div></div></div>
-    <div class="note">${g} games · ${s && s.FGA ? Math.round((s.FGM / s.FGA) * 100) : 0}% FG · ${s && s.TPA ? Math.round((s.TPM / s.TPA) * 100) : 0}% 3P · ${s && s.FTA ? Math.round((s.FTM / s.FTA) * 100) : 0}% FT</div>`;
+    <div class="note">${g} games · ${s && s.FGA ? Math.round((s.FGM / s.FGA) * 100) : 0}% FG · ${s && s.TPA ? Math.round((s.TPM / s.TPA) * 100) : 0}% 3P · ${s && s.FTA ? Math.round((s.FTM / s.FTA) * 100) : 0}% FT</div>
+    ${careerTable(p.id)}`;
   if (!mine && !full) return head + `<button class="btn primary wide" data-pscout="${p.id}" style="margin-top:12px" ${ctx.state.ap < C.PLAYER_SCOUT_COST ? 'disabled' : ''}>Scout him · ${C.PLAYER_SCOUT_COST} AP</button>
     <div class="note">${known ? 'You scouted him as a recruit, so you know his ceiling.' : 'Ceiling and potential stay hidden until you scout him.'} Scouting reveals his ceiling, potential and every skill rating.</div>`;
   if (!mine) return head + `<div class="sec">Scouting report · current / 100 (ceiling in brackets)</div>
@@ -1290,6 +1291,33 @@ function sheetPlayer() {
 }
 const TEND_LABEL = (v) => v >= 5 ? 'Go-to scorer' : v >= 3 ? 'Looks for his shot' : v >= 1 ? 'Slightly aggressive' : v === 0 ? 'Auto' : v >= -2 ? 'Slightly passive' : v >= -4 ? 'Passer first' : 'Never shoots';
 const tendTag = (p) => { const v = ctx.state.tactics.shotTend?.[p.id] || 0; return v ? ` <span class="tend ${v > 0 ? 'up' : 'down'}">Shots ${v > 0 ? '+' : ''}${v}</span>` : ''; };
+// Career: HS senior year, every college season (per game), and a career line.
+function careerTable(pid) {
+  const rows = C.careerFor(ctx, pid);
+  if (!rows.length) return '';
+  const pct = (m, a) => (a ? `${Math.round((m / a) * 100)}` : '-');
+  const pg = (v, n) => (n ? (v / n).toFixed(1) : '-');
+  const head = '<tr><th>Season</th><th>GP</th><th>MIN</th><th>PTS</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>FG%</th><th>3P%</th><th>FT%</th></tr>';
+  const yr = (y) => `${y}-${String(y + 1).slice(2)}`;
+  const col = (r) => r.filter((x) => x[0] !== C.CAREER_HS);
+  let body = '';
+  for (const r of rows) {
+    if (r[0] === C.CAREER_HS) {
+      const t = (v) => (v / 10).toFixed(1);
+      body += `<tr class="hs"><td>HS senior</td><td>${r[1]}</td><td>-</td><td>${t(r[2])}</td><td>${t(r[3])}</td><td>${t(r[4])}</td><td>${t(r[5])}</td><td>${t(r[6])}</td><td>${r[7]}</td><td>${r[8] < 0 ? '-' : r[8]}</td><td>${r[9]}</td></tr>`;
+      continue;
+    }
+    const [y, GP, MIN, PTS, REB, AST, STL, BLK, FGM, FGA, TPM, TPA, FTM, FTA, mine, live] = r;
+    body += `<tr class="${mine ? 'mine' : ''}"><td>${yr(y)}${live ? ' <small>now</small>' : ''}</td><td>${GP}</td><td>${pg(MIN, GP)}</td><td><b>${pg(PTS, GP)}</b></td><td>${pg(REB, GP)}</td><td>${pg(AST, GP)}</td><td>${pg(STL, GP)}</td><td>${pg(BLK, GP)}</td><td>${pct(FGM, FGA)}</td><td>${pct(TPM, TPA)}</td><td>${pct(FTM, FTA)}</td></tr>`;
+  }
+  const cr = col(rows);
+  if (cr.length > 1) {
+    const sum = (i) => cr.reduce((a, r) => a + r[i], 0);
+    const GP = sum(1);
+    body += `<tr class="tot"><td>Career</td><td>${GP}</td><td>${pg(sum(2), GP)}</td><td>${pg(sum(3), GP)}</td><td>${pg(sum(4), GP)}</td><td>${pg(sum(5), GP)}</td><td>${pg(sum(6), GP)}</td><td>${pg(sum(7), GP)}</td><td>${pct(sum(8), sum(9))}</td><td>${pct(sum(10), sum(11))}</td><td>${pct(sum(12), sum(13))}</td></tr>`;
+  }
+  return `<div class="sec">Career · per game</div><div class="scroll"><table class="box career">${head}${body}</table></div>`;
+}
 // Any player name anywhere: tap to open his card.
 const pname = (pid, label) => `<button class="pname" data-pcard="${pid}">${label}</button>`;
 function openPlayerCard(pid) {
