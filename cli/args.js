@@ -1,0 +1,23 @@
+// Tiny argv parser: positional args plus --key value / --flag
+export function parseArgs(argv = process.argv.slice(2)) {
+  const out = { _: [] };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a.startsWith('--')) {
+      const key = a.slice(2);
+      const next = argv[i + 1];
+      if (next === undefined || next.startsWith('--')) out[key] = true;
+      else { out[key] = next; i++; }
+    } else out._.push(a);
+  }
+  return out;
+}
+
+export function tacticsFrom(args, prefix) {
+  const t = {};
+  for (const k of ['tempo', 'defense', 'focus', 'depth']) {
+    const v = args[`${prefix}-${k}`];
+    if (v !== undefined) t[k] = k === 'depth' ? Number(v) : v;
+  }
+  return t;
+}

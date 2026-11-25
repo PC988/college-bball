@@ -1,0 +1,326 @@
+--- 1st half ---
+19:40  UNC   0-0     Devin Traore misses a three-pointer.
+19:40  DUKE  0-0     Defensive rebound by Reed Clark.
+19:21  DUKE  0-3     Brandon Morris makes a three-pointer (assist Chris Price).
+19:08  UNC   2-3     Devin Traore makes a layup (assist Chris Murray).
+19:00  DUKE  2-3     Lamar Taylor turnover, stolen by Javon Carroll.
+18:33  UNC   4-3     Charlie Morgan makes a layup.
+18:07  DUKE  4-3     Jonah Myers misses a three-pointer.
+18:07  UNC   4-3     Defensive rebound by Devin Traore.
+17:57  UNC   4-3     Chris Murray turnover, stolen by Lamar Taylor.
+17:54  UNC   4-3     Foul on Isaiah Lee.
+17:49  DUKE  4-6     Jonah Myers makes a three-pointer (assist Lamar Taylor).
+17:31  UNC   4-6     Chris Murray misses a jumper.
+17:31  DUKE  4-6     Defensive rebound by Malik Burns.
+17:23  DUKE  4-6     Malik Burns turnover (bad pass).
+17:06  UNC   4-6     Chase Turner misses a three-pointer.
+17:06  DUKE  4-6     Defensive rebound by Malik Burns.
+16:57  UNC   4-6     Foul on Chase Turner.
+16:44  DUKE  4-6     Brandon Morris misses a layup.
+16:44  UNC   4-6     Defensive rebound by Charlie Morgan.
+16:33  UNC   4-6     Charlie Morgan turnover, stolen by Chris Price.
+16:11  DUKE  4-6     Brandon Morris misses a jumper.
+16:11  DUKE  4-6     Offensive rebound by Terrence Clark.
+16:06  DUKE  4-8     Brandon Morris makes a jumper (assist Terrence Clark).
+15:56  DUKE  4-8     Shooting foul on Chris Price.
+15:56  UNC   4-8     Kevin Davis misses free throw 1 of 2.
+15:56  UNC   4-8     Kevin Davis misses free throw 2 of 2.
+15:56  DUKE  4-8     Defensive rebound by Jonah Myers.
+15:45  DUKE  4-8     Brandon Morris misses a three-pointer.
+15:45  UNC   4-8     Defensive rebound by Charlie Morgan.
+15:26  DUKE  4-8     Shooting foul on Chris Price.
+15:26  UNC   5-8     Devin Traore makes free throw 1 of 2.
+15:26  UNC   6-8     Devin Traore makes free throw 2 of 2.
+15:08  DUKE  6-11    Brandon Morris makes a three-pointer (assist Moussa Harper).
+14:46  UNC   9-11    Chris Murray makes a three-pointer (assist Kevin Davis).
+14:36  DUKE  9-11    Chris Price's dunk is blocked by Javon Carroll.
+14:36  UNC   9-11    Defensive rebound by Chris Murray.
+14:23  UNC   12-11   Devin Traore makes a three-pointer (assist Chris Murray).
+13:57  DUKE  12-11   Brandon Morris misses a three-pointer.
+13:57  UNC   12-11   Defensive rebound by Charlie Morgan.
+13:39  DUKE  12-11   Shooting foul on Malik Burns.
+13:39  UNC   13-11   Chris Murray makes free throw 1 of 2.
+13:39  UNC   14-11   Chris Murray makes free throw 2 of 2.
+13:12  DUKE  14-11   Moussa Harper misses a three-pointer.
+13:12  UNC   14-11   Defensive rebound by Javon Carroll.
+12:42  UNC   14-11   Charlie Morgan misses a three-pointer.
+12:42  UNC   14-11   Offensive rebound by Charlie Morgan.
+12:35  UNC   14-11   Chris Murray misses a jumper.
+12:35  DUKE  14-11   Defensive rebound by Malik Burns.
+12:13  DUKE  14-14   Lamar Taylor makes a three-pointer (assist Jonah Myers).
+12:05  UNC   14-14   Chris Murray turnover, stolen by Jonah Myers.
+11:52  DUKE  14-14   Brandon Morris turnover (offensive foul).
+11:35  UNC   14-14   Devin Traore turnover (offensive foul).
+11:20  DUKE  14-17   Brandon Morris makes a three-pointer (assist Jonah Myers).
+11:08  UNC   16-17   Kevin Davis makes a dunk (assist Devin Traore).
+10:58  UNC   16-17   Foul on Charlie Morgan.
+10:43  DUKE  16-17   Lamar Taylor misses a three-pointer.
+10:43  UNC   16-17   Defensive rebound by Charlie Morgan.
+10:37  UNC   16-17   Chase Turner turnover, stolen by Reed Clark.
+10:19  DUKE  16-17   Terrence Clark turnover (traveling).
+ 9:56  UNC   19-17   Charlie Morgan makes a three-pointer (assist Chase Turner).
+ 9:49  UNC   19-17   Foul on Paxton Sullivan.
+ 9:39  DUKE  19-17   Jonah Myers misses a three-pointer.
+ 9:39  UNC   19-17   Defensive rebound by Charlie Morgan.
+ 9:30  DUKE  19-17   Foul on Reed Clark.
+ 9:18  UNC   21-17   Devin Traore makes a layup.
+ 9:18  DUKE  21-17   And one! Shooting foul on Lamar Taylor.
+ 9:18  UNC   21-17   Devin Traore misses free throw 1 of 1.
+ 9:18  DUKE  21-17   Defensive rebound by Brandon Morris.
+ 9:08  UNC   21-17   Foul on Kevin Davis.
+ 8:53  DUKE  21-19   Brandon Morris makes a layup (assist Jonah Myers).
+ 8:45  UNC   21-19   Paxton Sullivan turnover, stolen by Brandon Morris.
+ 8:28  DUKE  21-19   Lamar Taylor misses a three-pointer.
+ 8:28  UNC   21-19   Defensive rebound by Paxton Sullivan.
+ 8:12  UNC   21-19   Paxton Sullivan misses a layup.
+ 8:12  DUKE  21-19   Defensive rebound by Malik Burns.
+ 8:01  DUKE  21-19   Moussa Harper misses a three-pointer.
+ 8:01  DUKE  21-19   Offensive rebound by Reed Clark.
+ 7:56  DUKE  21-19   Lamar Taylor misses a three-pointer.
+ 7:56  UNC   21-19   Defensive rebound by Devin Traore.
+ 7:38  UNC   24-19   Devin Traore makes a three-pointer (assist Chris Murray).
+ 7:28  DUKE  24-22   Lamar Taylor makes a three-pointer (assist Brandon Morris).
+ 7:17  UNC   24-22   Chris Murray misses a three-pointer.
+ 7:17  UNC   24-22   Offensive rebound by Kevin Davis.
+ 7:14  UNC   24-22   Kevin Davis misses a dunk.
+ 7:14  DUKE  24-22   Defensive rebound by Reed Clark.
+ 6:52  DUKE  24-22   Moussa Harper misses a three-pointer.
+ 6:52  UNC   24-22   Defensive rebound by Charlie Morgan.
+ 6:32  DUKE  24-22   Shooting foul on Reed Clark.
+ 6:32  UNC   25-22   Chris Murray makes free throw 1 of 2.
+ 6:32  UNC   26-22   Chris Murray makes free throw 2 of 2.
+ 6:19  DUKE  26-22   Brandon Morris turnover, stolen by Chase Turner.
+ 6:01  UNC   29-22   Devin Traore makes a three-pointer (assist Chase Turner).
+ 5:48  DUKE  29-22   Lamar Taylor misses a three-pointer.
+ 5:48  DUKE  29-22   Offensive rebound by Lamar Taylor.
+ 5:42  DUKE  29-24   Lamar Taylor makes a jumper.
+ 5:21  UNC   32-24   Chase Turner makes a three-pointer (assist Devin Traore).
+ 5:14  UNC   32-24   Foul on Chris Murray.
+ 5:04  DUKE  32-24   Chris Price misses a post hook.
+ 5:04  UNC   32-24   Defensive rebound by Javon Carroll.
+ 4:49  UNC   34-24   Chase Turner makes a jumper (assist Isaiah Lee).
+ 4:30  DUKE  34-26   Terrence Clark makes a layup (assist Brandon Morris).
+ 4:21  UNC   34-26   Javon Carroll turnover, stolen by Chris Price.
+ 4:04  DUKE  34-26   Chris Price misses a post hook.
+ 4:04  UNC   34-26   Defensive rebound by Charlie Morgan.
+ 3:46  UNC   34-26   Javon Carroll turnover, stolen by Moussa Harper.
+ 3:41  DUKE  34-26   Chris Price turnover, stolen by Devin Traore.
+ 3:34  UNC   34-26   Chris Murray turnover, stolen by Moussa Harper.
+ 3:04  DUKE  34-26   Jonah Myers misses a three-pointer.
+ 3:04  UNC   34-26   Defensive rebound by Chris Murray.
+ 2:42  UNC   37-26   Chris Murray makes a three-pointer (assist Devin Traore).
+ 2:30  DUKE  37-26   Jonah Myers turnover (traveling).
+ 2:15  UNC   37-26   Devin Traore misses a jumper.
+ 2:15  DUKE  37-26   Defensive rebound by Chris Price.
+ 2:06  DUKE  37-26   Malik Burns turnover, stolen by Kevin Davis.
+ 1:47  UNC   37-26   Javon Carroll misses a jumper.
+ 1:47  DUKE  37-26   Defensive rebound by Malik Burns.
+ 1:19  DUKE  37-28   Moussa Harper makes a layup.
+ 1:19  UNC   37-28   And one! Shooting foul on Kevin Davis.
+ 1:19  DUKE  37-29   Moussa Harper makes free throw 1 of 1.
+ 1:04  UNC   37-29   Chase Turner turnover, stolen by Lamar Taylor.
+ 0:38  DUKE  37-29   Brandon Morris misses a jumper.
+ 0:38  UNC   37-29   Defensive rebound by Devin Traore.
+ 0:13  UNC   37-29   Isaiah Lee's layup is blocked by Chris Price.
+ 0:13  DUKE  37-29   Defensive rebound by Chris Price.
+ 0:08  UNC   37-29   Foul on Javon Carroll.
+ 0:08  DUKE  37-30   Moussa Harper makes free throw 1 of 1.
+ 0:08  DUKE  37-31   Moussa Harper makes free throw 2 of 2.
+ 0:03  UNC   37-31   Devin Traore misses a three-pointer.
+ 0:03  DUKE  37-31   Defensive rebound by Chris Price.
+ 0:02  DUKE  37-31   Chris Price turnover (lost ball out of bounds).
+ 0:01  DUKE  37-31   Foul on Lamar Taylor.
+ 0:01  UNC   38-31   Chris Murray makes free throw 1 of 1.
+ 0:01  UNC   39-31   Chris Murray makes free throw 2 of 2.
+ 0:00  DUKE  39-34   Brandon Morris makes a three-pointer (assist Terrence Clark).
+ 0:00  DUKE  39-34   End of 1st half: DUKE 34, UNC 39.
+--- 2nd half ---
+19:33  DUKE  39-37   Lamar Taylor makes a three-pointer (assist Brandon Morris).
+19:19  UNC   39-37   Isaiah Lee misses a three-pointer.
+19:19  DUKE  39-37   Defensive rebound by Chris Price.
+19:12  UNC   39-37   Foul on Charlie Morgan.
+19:02  DUKE  39-37   Reed Clark misses a dunk.
+19:02  UNC   39-37   Defensive rebound by Chase Turner.
+18:43  UNC   39-37   Chris Murray misses a jumper.
+18:43  DUKE  39-37   Defensive rebound by Chris Price.
+18:18  DUKE  39-37   Lamar Taylor misses a jumper.
+18:18  UNC   39-37   Defensive rebound by Devin Traore.
+17:59  UNC   41-37   Kevin Davis makes a layup.
+17:48  UNC   41-37   Foul on Chris Murray.
+17:32  DUKE  41-37   Brandon Morris misses a three-pointer.
+17:32  DUKE  41-37   Offensive rebound by Chris Price.
+17:29  DUKE  41-39   Chris Price makes a dunk (assist Brandon Morris).
+17:13  UNC   41-39   Javon Carroll misses a three-pointer.
+17:13  DUKE  41-39   Defensive rebound by Lamar Taylor.
+17:08  DUKE  41-41   Chris Price makes a layup.
+16:45  UNC   41-41   Chris Murray misses a three-pointer.
+16:45  UNC   41-41   Offensive rebound by Kevin Davis.
+16:36  DUKE  41-41   Shooting foul on Reed Clark.
+16:36  UNC   42-41   Kevin Davis makes free throw 1 of 2.
+16:36  UNC   43-41   Kevin Davis makes free throw 2 of 2.
+16:20  DUKE  43-43   Chris Price makes a dunk.
+16:09  UNC   43-43   Paxton Sullivan misses a jumper.
+16:09  UNC   43-43   Offensive rebound by Javon Carroll.
+16:01  UNC   43-43   Javon Carroll's layup is blocked by Brandon Morris.
+16:01  DUKE  43-43   Defensive rebound by Brandon Morris.
+15:56  UNC   43-43   Foul on Chris Murray.
+15:50  DUKE  43-43   Jonah Myers misses a three-pointer.
+15:50  UNC   43-43   Defensive rebound by Javon Carroll.
+15:35  UNC   43-43   Chase Turner turnover (lost ball out of bounds).
+15:19  DUKE  43-43   Moussa Harper misses a layup.
+15:19  UNC   43-43   Defensive rebound by Charlie Morgan.
+15:03  UNC   43-43   Paxton Sullivan misses a jumper.
+15:03  DUKE  43-43   Defensive rebound by Terrence Clark.
+14:42  DUKE  43-43   Chris Price misses a layup.
+14:42  UNC   43-43   Defensive rebound by Kevin Davis.
+14:25  UNC   45-43   Paxton Sullivan makes a post hook.
+14:07  DUKE  45-45   Terrence Clark makes a dunk (assist Moussa Harper).
+14:04  UNC   45-45   Javon Carroll turnover, stolen by Terrence Clark.
+13:42  DUKE  45-45   Moussa Harper misses a jumper.
+13:42  UNC   45-45   Defensive rebound by Charlie Morgan.
+13:30  UNC   45-45   Charlie Morgan turnover, stolen by Terrence Clark.
+13:16  DUKE  45-45   Moussa Harper misses a three-pointer.
+13:16  DUKE  45-45   Offensive rebound by Malik Burns.
+13:09  DUKE  45-45   Malik Burns's dunk is blocked by Javon Carroll.
+13:09  UNC   45-45   Defensive rebound by Devin Traore.
+12:45  UNC   45-45   Charlie Morgan misses a jumper.
+12:45  UNC   45-45   Offensive rebound by Kevin Davis.
+12:40  UNC   45-45   Kevin Davis's dunk is blocked by Chris Price.
+12:40  DUKE  45-45   Defensive rebound by Moussa Harper.
+12:22  DUKE  45-47   Moussa Harper makes a layup.
+12:22  UNC   45-47   And one! Shooting foul on Isaiah Lee.
+12:22  DUKE  45-47   Moussa Harper misses free throw 1 of 1.
+12:22  UNC   45-47   Defensive rebound by Javon Carroll.
+12:13  UNC   47-47   Isaiah Lee makes a layup.
+12:02  UNC   47-47   Foul on Isaiah Lee.
+11:47  DUKE  47-47   Moussa Harper misses a three-pointer.
+11:47  UNC   47-47   Defensive rebound by Kevin Davis.
+11:40  UNC   47-47   Isaiah Lee turnover, stolen by Brandon Morris.
+11:32  UNC   47-47   Foul on Isaiah Lee.
+11:20  DUKE  47-49   Brandon Morris makes a jumper.
+10:58  UNC   49-49   Devin Traore makes a layup.
+10:37  DUKE  49-51   Brandon Morris makes a jumper (assist Lamar Taylor).
+10:15  UNC   49-51   Kevin Davis misses a jumper.
+10:15  UNC   49-51   Offensive rebound by Kevin Davis.
+10:09  UNC   49-51   Devin Traore misses a layup.
+10:09  DUKE  49-51   Defensive rebound by Moussa Harper.
+ 9:57  UNC   49-51   Shooting foul on Paxton Sullivan.
+ 9:57  DUKE  49-52   Brandon Morris makes free throw 1 of 2.
+ 9:57  DUKE  49-53   Brandon Morris makes free throw 2 of 2.
+ 9:36  UNC   49-53   Devin Traore misses a jumper.
+ 9:36  UNC   49-53   Offensive rebound by Charlie Morgan.
+ 9:30  UNC   51-53   Charlie Morgan makes a post hook.
+ 9:25  DUKE  51-53   Lamar Taylor misses a jumper.
+ 9:25  UNC   51-53   Defensive rebound by Paxton Sullivan.
+ 9:11  UNC   51-53   Chase Turner misses a three-pointer.
+ 9:11  DUKE  51-53   Defensive rebound by Reed Clark.
+ 8:54  DUKE  51-55   Chris Price makes a dunk (assist Lamar Taylor).
+ 8:42  UNC   53-55   Chris Murray makes a jumper.
+ 8:33  UNC   53-55   Foul on Chris Murray.
+ 8:33  DUKE  53-55   Chris Price misses free throw 1 of 1.
+ 8:33  UNC   53-55   Defensive rebound by Paxton Sullivan.
+ 8:16  UNC   56-55   Chase Turner makes a three-pointer (assist Paxton Sullivan).
+ 7:46  DUKE  56-58   Moussa Harper makes a three-pointer.
+ 7:39  UNC   56-58   Chase Turner turnover, stolen by Chris Price.
+ 7:31  DUKE  56-61   Lamar Taylor makes a three-pointer (assist Jonah Myers).
+ 7:25  DUKE  56-61   Foul on Lamar Taylor.
+ 7:15  UNC   56-61   Devin Traore misses a three-pointer.
+ 7:15  UNC   56-61   Offensive rebound by Charlie Morgan.
+ 7:08  UNC   56-61   Charlie Morgan misses a dunk.
+ 7:08  UNC   56-61   Offensive rebound by Charlie Morgan.
+ 7:03  UNC   58-61   Charlie Morgan makes a layup.
+ 6:58  UNC   58-61   Foul on Charlie Morgan.
+ 6:58  DUKE  58-62   Jonah Myers makes free throw 1 of 1.
+ 6:58  DUKE  58-63   Jonah Myers makes free throw 2 of 2.
+ 6:52  DUKE  58-63   Foul on Lamar Taylor.
+ 6:42  DUKE  58-63   Shooting foul on Chris Price.
+ 6:42  UNC   59-63   Javon Carroll makes free throw 1 of 2.
+ 6:42  UNC   60-63   Javon Carroll makes free throw 2 of 2.
+ 6:21  DUKE  60-66   Terrence Clark makes a three-pointer (assist Jonah Myers).
+ 6:07  UNC   60-66   Chase Turner misses a three-pointer.
+ 6:07  DUKE  60-66   Defensive rebound by Reed Clark.
+ 5:44  DUKE  60-69   Malik Burns makes a three-pointer (assist Moussa Harper).
+ 5:17  UNC   62-69   Devin Traore makes a jumper (assist Chase Turner).
+ 4:56  UNC   62-69   Shooting foul on Kevin Davis.
+ 4:56  DUKE  62-70   Reed Clark makes free throw 1 of 2.
+ 4:56  DUKE  62-70   Reed Clark misses free throw 2 of 2.
+ 4:56  UNC   62-70   Defensive rebound by Javon Carroll.
+ 4:45  UNC   62-70   Kevin Davis turnover, stolen by Brandon Morris.
+ 4:15  DUKE  62-70   Brandon Morris misses a jumper.
+ 4:15  DUKE  62-70   Offensive rebound by Reed Clark.
+ 4:08  UNC   62-70   Chris Murray has fouled out.
+ 4:08  UNC   62-70   Shooting foul on Chris Murray.
+ 4:08  DUKE  62-71   Brandon Morris makes free throw 1 of 2.
+ 4:08  DUKE  62-72   Brandon Morris makes free throw 2 of 2.
+ 3:56  DUKE  62-72   Foul on Malik Burns.
+ 3:38  UNC   65-72   Javon Carroll makes a three-pointer (assist Isaiah Lee).
+ 3:22  DUKE  65-74   Reed Clark makes a layup (assist Moussa Harper).
+ 3:07  UNC   65-74   Isaiah Lee misses a three-pointer.
+ 3:07  DUKE  65-74   Defensive rebound by Reed Clark.
+ 2:58  DUKE  65-74   Lamar Taylor turnover (bad pass).
+ 2:42  DUKE  65-74   Lamar Taylor has fouled out.
+ 2:42  DUKE  65-74   Shooting foul on Lamar Taylor.
+ 2:42  UNC   66-74   Javon Carroll makes free throw 1 of 2.
+ 2:42  UNC   67-74   Javon Carroll makes free throw 2 of 2.
+ 2:22  DUKE  67-74   Brandon Morris's layup is blocked by Kevin Davis.
+ 2:22  UNC   67-74   Defensive rebound by Devin Traore.
+ 2:06  UNC   67-74   Charlie Morgan misses a three-pointer.
+ 2:06  DUKE  67-74   Defensive rebound by Chris Price.
+ 1:58  DUKE  67-74   Brandon Morris turnover (bad pass).
+ 1:42  UNC   67-74   Charlie Morgan misses a three-pointer.
+ 1:42  DUKE  67-74   Defensive rebound by Reed Clark.
+ 1:26  DUKE  67-77   Moussa Harper makes a three-pointer (assist Brandon Morris).
+ 1:09  UNC   67-77   Devin Traore misses a layup.
+ 1:09  DUKE  67-77   Defensive rebound by Chris Price.
+ 0:46  DUKE  67-77   Moussa Harper misses a three-pointer.
+ 0:46  DUKE  67-77   Offensive rebound by Reed Clark.
+ 0:42  DUKE  67-77   Reed Clark misses a jumper.
+ 0:42  DUKE  67-77   Offensive rebound by Chris Price.
+ 0:33  DUKE  67-77   Moussa Harper misses a jumper.
+ 0:33  DUKE  67-77   Offensive rebound by Jonah Myers.
+ 0:28  DUKE  67-77   Jonah Myers's layup is blocked by Kevin Davis.
+ 0:28  DUKE  67-77   Offensive rebound by Chris Price.
+ 0:19  DUKE  67-77   Moussa Harper misses a jumper.
+ 0:19  UNC   67-77   Defensive rebound by Javon Carroll.
+ 0:01  UNC   67-77   Javon Carroll misses a three-pointer.
+ 0:01  DUKE  67-77   Defensive rebound by Chris Price.
+ 0:00  DUKE  67-77   Brandon Morris's layup is blocked by Kevin Davis.
+ 0:00  DUKE  67-77   Offensive rebound by Reed Clark.
+ 0:00  DUKE  67-77   End of regulation: DUKE 77, UNC 67.
+ 0:00  DUKE  67-77   Final: Duke 77, North Carolina 67.
+
+North Carolina 67 @ Duke 77
+
+North Carolina (70 poss)
+PLAYER                 POS MIN  PTS  FG     3PT    FT     OR DR REB AST STL BLK TO PF  +/-
+Chris Murray*          SG   26   14  3-8    2-4    6-6     0  2   2   3   0   0  3  5   +3
+Devin Traore*          SG   31   19  7-14   3-6    2-3     0  6   6   3   1   0  1  1   -9
+Javon Carroll*         SF   32    7  1-5    1-3    4-4     1  6   7   0   1   2  3  1  -10
+Charlie Morgan*        PF   30    9  4-9    1-4    0-0     4  9  13   0   0   0  2  3   -3
+Kevin Davis*           C    29    6  2-5    0-0    2-4     4  2   6   1   1   3  1  3   -7
+Chase Turner           PG   22    8  3-6    2-5    0-0     0  1   1   3   1   0  4  1  -15
+Paxton Sullivan        C    16    2  1-4    0-0    0-0     0  3   3   1   0   0  1  2   -1
+Isaiah Lee             PG   14    2  1-4    0-2    0-0     0  0   0   2   0   0  1  4   -8
+Logan Gray             PF  DNP
+Otis Brown             SG  DNP
+Owen Ross              SF  DNP
+Reed Gibson            PF  DNP
+TEAM                       200   67  22-55  9-24   14-17   9 29  38  13   4   5 16 20     
+                               FG 40.0%  3P 37.5%  FT 82.4%
+
+Duke (71 poss)
+PLAYER                 POS MIN  PTS  FG     3PT    FT     OR DR REB AST STL BLK TO PF  +/-
+Lamar Taylor*          SG   29   14  5-11   4-8    0-0     1  1   2   3   2   0  2  5   +6
+Moussa Harper*         SG   32   13  4-14   2-8    3-4     0  2   2   4   2   0  0  0   +5
+Brandon Morris*        SF   30   24  8-17   4-7    4-4     0  2   2   5   3   1  3  1   +1
+Chris Price*           PF   30    8  4-8    0-0    0-1     3  8  11   1   3   2  2  3  +14
+Reed Clark*            PF   29    3  1-3    0-0    1-2     4  6  10   0   1   0  0  3   -2
+Jonah Myers            PG   21    5  1-6    1-5    2-2     1  1   2   5   1   0  1  0  +13
+Terrence Clark         SF   15    7  3-3    1-1    0-0     1  1   2   2   2   0  1  0   +9
+Malik Burns            C    14    3  1-2    1-1    0-0     1  5   6   0   0   0  2  2   +4
+DeShawn Jackson        PF  DNP
+Sam Lee                C   DNP
+Chris Harper           SG  DNP
+Michael Martinez       PG  DNP
+TEAM                       200   77  27-64  13-30  10-13  11 26  37  20  14   3 11 14     
+                               FG 42.2%  3P 43.3%  FT 76.9%

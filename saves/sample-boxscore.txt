@@ -1,0 +1,35 @@
+North Carolina 67 @ Duke 77
+
+North Carolina (70 poss)
+PLAYER                 POS MIN  PTS  FG     3PT    FT     OR DR REB AST STL BLK TO PF  +/-
+Chris Murray*          SG   26   14  3-8    2-4    6-6     0  2   2   3   0   0  3  5   +3
+Devin Traore*          SG   31   19  7-14   3-6    2-3     0  6   6   3   1   0  1  1   -9
+Javon Carroll*         SF   32    7  1-5    1-3    4-4     1  6   7   0   1   2  3  1  -10
+Charlie Morgan*        PF   30    9  4-9    1-4    0-0     4  9  13   0   0   0  2  3   -3
+Kevin Davis*           C    29    6  2-5    0-0    2-4     4  2   6   1   1   3  1  3   -7
+Chase Turner           PG   22    8  3-6    2-5    0-0     0  1   1   3   1   0  4  1  -15
+Paxton Sullivan        C    16    2  1-4    0-0    0-0     0  3   3   1   0   0  1  2   -1
+Isaiah Lee             PG   14    2  1-4    0-2    0-0     0  0   0   2   0   0  1  4   -8
+Logan Gray             PF  DNP
+Otis Brown             SG  DNP
+Owen Ross              SF  DNP
+Reed Gibson            PF  DNP
+TEAM                       200   67  22-55  9-24   14-17   9 29  38  13   4   5 16 20     
+                               FG 40.0%  3P 37.5%  FT 82.4%
+
+Duke (71 poss)
+PLAYER                 POS MIN  PTS  FG     3PT    FT     OR DR REB AST STL BLK TO PF  +/-
+Lamar Taylor*          SG   29   14  5-11   4-8    0-0     1  1   2   3   2   0  2  5   +6
+Moussa Harper*         SG   32   13  4-14   2-8    3-4     0  2   2   4   2   0  0  0   +5
+Brandon Morris*        SF   30   24  8-17   4-7    4-4     0  2   2   5   3   1  3  1   +1
+Chris Price*           PF   30    8  4-8    0-0    0-1     3  8  11   1   3   2  2  3  +14
+Reed Clark*            PF   29    3  1-3    0-0    1-2     4  6  10   0   1   0  0  3   -2
+Jonah Myers            PG   21    5  1-6    1-5    2-2     1  1   2   5   1   0  1  0  +13
+Terrence Clark         SF   15    7  3-3    1-1    0-0     1  1   2   2   2   0  1  0   +9
+Malik Burns            C    14    3  1-2    1-1    0-0     1  5   6   0   0   0  2  2   +4
+DeShawn Jackson        PF  DNP
+Sam Lee                C   DNP
+Chris Harper           SG  DNP
+Michael Martinez       PG  DNP
+TEAM                       200   77  27-64  13-30  10-13  11 26  37  20  14   3 11 14     
+                               FG 42.2%  3P 43.3%  FT 76.9%

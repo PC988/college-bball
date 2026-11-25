@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1565c0">
+<title>College Hoops Manager</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- start -->
+<div id="start" class="start hidden">
+  <div class="start-inner">
+    <h1>College Hoops Manager</h1>
+    <p class="muted">Pick your school, hire a scout, sign your class in 32 game days.</p>
+    <label class="lbl" for="schoolSearch">Your school</label>
+    <input id="schoolSearch" placeholder="Search 161 schools" autocomplete="off">
+    <div id="schoolResults" class="school-results"></div>
+    <div id="schoolInfo" class="school-info hidden"></div>
+    <div class="lbl">Hire a scout</div>
+    <div id="scoutChoices" class="scouts"></div>
+    <button id="startBtn" class="btn primary wide" disabled>Start recruiting</button>
+    <button id="continueBtn" class="btn wide hidden">Continue saved game</button>
+  </div>
+</div>
+
+<!-- game -->
+<div id="game" class="game hidden">
+  <header class="topbar">
+    <div class="ap-chip" id="apCard" aria-live="polite"><span class="ap-l">AP</span><b id="apNum">20</b><small id="apMax">/20</small></div>
+    <div class="title"><div id="tSchool">Scouting Map</div><div id="tRecord" class="sub"></div></div>
+    <button id="needsBtn" class="btn dark">Needs</button>
+    <button id="menuBtn" class="round" aria-label="Menu">☰</button>
+  </header>
+
+  <div class="page" id="page-today"></div>
+  <div class="page" id="page-roster"></div>
+  <div class="page" id="page-train"></div>
+  <div class="page" id="page-season"></div>
+  <div class="map-area hidden" id="mapArea">
+    <svg id="map" aria-label="Recruiting map"></svg>
+
+
+    <div class="tools">
+      <button id="locateBtn" class="tool" aria-label="Find scout"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg></button>
+      <button id="zoomIn" class="tool" aria-label="Zoom in"><svg viewBox="0 0 24 24"><path d="M10 3a7 7 0 1 0 4.2 12.6l5.1 5.1 1.4-1.4-5.1-5.1A7 7 0 0 0 10 3zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm-1 2v2H7v2h2v2h2v-2h2V9h-2V7z"/></svg></button>
+      <button id="zoomOut" class="tool" aria-label="Zoom out"><svg viewBox="0 0 24 24"><path d="M10 3a7 7 0 1 0 4.2 12.6l5.1 5.1 1.4-1.4-5.1-5.1A7 7 0 0 0 10 3zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10zM7 9v2h6V9z"/></svg></button>
+      <button id="boardBtn" class="tool txt" aria-label="Big board">Board</button>
+      <button id="newsBtn" class="tool txt" aria-label="News">News<span id="newsDot" class="dot hidden"></span></button>
+    </div>
+
+    <div id="eventChip" class="event-chip hidden"></div>
+
+    <div class="bottom-bar" id="bottomBar">
+      <div class="pill" id="dayPill"></div>
+      <button id="endDayBtn" class="btn primary">End Day</button>
+    </div>
+  </div>
+
+  <nav class="tabbar" id="tabbar">
+    <button data-tab="today" class="on"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm6.9 9h-3a14 14 0 0 0-1.4-6A8 8 0 0 1 18.9 11zM12 4.1A12 12 0 0 1 13.9 11h-3.8A12 12 0 0 1 12 4.1zM9.5 5a14 14 0 0 0-1.4 6h-3A8 8 0 0 1 9.5 5zM5.1 13h3a14 14 0 0 0 1.4 6A8 8 0 0 1 5.1 13zM12 19.9A12 12 0 0 1 10.1 13h3.8A12 12 0 0 1 12 19.9zm2.5-.9a14 14 0 0 0 1.4-6h3a8 8 0 0 1-4.4 6z"/></svg>Today</button>
+    <button data-tab="roster"><svg viewBox="0 0 24 24"><path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-3.3 0-7 1.6-7 4v3h14v-3c0-2.4-3.7-4-7-4zm7.5-2a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zm1 2c-.6 0-1.2.1-1.8.2 1.4.9 2.3 2.2 2.3 3.8v3h5v-3c0-2.2-2.9-4-5.5-4z"/></svg>Roster</button>
+    <button data-tab="train"><svg viewBox="0 0 24 24"><path d="M20.6 14.9 22 13.5 20.6 12 17 15.6 8.4 7 12 3.4 10.6 2 9.1 3.4 7.7 2 5.5 4.2 4.1 2.8 2.7 4.2l1.4 1.4L2 7.8l1.4 1.4L2 10.6 3.4 12 7 8.4l8.6 8.6L12 20.6l1.4 1.4 1.4-1.4 1.5 1.4 2.1-2.2 1.4 1.4 1.4-1.4-1.4-1.4 2.2-2.1-1.4-1.5z"/></svg>Train</button>
+    <button data-tab="recruit"><svg viewBox="0 0 24 24"><path d="M15 4l-6-2-7 2.5V22l7-2.5 6 2 7-2.5V2l-7 2zm-1 15.3l-4-1.4V4.7l4 1.4v13.2z"/></svg>Recruit<span id="tabDot" class="dot hidden"></span></button>
+    <button data-tab="season"><svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V9h14v11zM7 11h4v4H7z"/></svg>Season</button>
+  </nav>
+
+  <div id="toast" class="toast hidden"></div>
+  <div id="live" class="live hidden">
+    <div class="sb" id="sb"></div>
+    <div class="live-ctrl" id="liveCtrl"></div>
+    <div class="feed" id="feed"></div>
+    <div class="feed hidden" id="lbox"></div>
+    <div class="feed hidden" id="lcoach"></div>
+    <div class="crit hidden" id="crit"></div>
+    <div class="live-foot" id="liveFoot"></div>
+  </div>
+
+  <div id="scrim" class="scrim hidden"></div>
+  <section id="sheet" class="sheet" aria-hidden="true">
+    <div class="grab" id="grab"><span></span></div>
+    <button class="sheet-back round hidden" id="sheetBack" aria-label="Back">‹</button>
+    <button class="sheet-x round" id="sheetClose" aria-label="Close">✕</button>
+    <div class="sheet-body" id="sheetBody"></div>
+  </section>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

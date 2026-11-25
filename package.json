@@ -1,0 +1,22 @@
+{
+  "name": "cbb-manager",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build:schools": "node tools/build-schools.js",
+    "game": "node cli/play-game.js",
+    "season": "node cli/sim-season.js",
+    "offseason": "node cli/offseason.js",
+    "test": "node tools/validate.js",
+    "build:web": "node tools/bundle-web.mjs",
+    "build:map": "node tools/build-map.mjs data/us-states.json",
+    "test:recruiting": "node tests/recruiting-sim.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "d3-geo": "^3.1.0",
+    "topojson-client": "^3.1.0",
+    "us-atlas": "^3.0.1"
+  }
+}
