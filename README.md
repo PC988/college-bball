@@ -1,3 +1,10 @@
+# College Basketball Manager
+
+## Play
+- **Phone (offline):** open https://pc988.github.io/college-bball/ in Safari, tap Share, then **Add to Home Screen**. Open it once with internet; after that it runs with no connection.
+- **Computer (offline):** download `dist/College-Hoops-Manager.html` and double-click it.
+- Rebuild both after code changes: `npm run build:web` (writes `dist/`, `index.html`, `sw.js`, `manifest.webmanifest`).
+
 # College Basketball Manager: game engine (v0.1)
 
 Plain JavaScript (ES modules), zero dependencies, Node 18+. Same code will run in a browser UI later.

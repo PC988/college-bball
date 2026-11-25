@@ -26,7 +26,25 @@ export const TARGET_MIN = {
 };
 
 const POS_IDX = { PG: 0, SG: 1, SF: 2, PF: 3, C: 4 };
-export const TEND_K = 0.32;
+// Shot tendency (-5..5) moves a player's share of his lineup's shots toward a target, instead of multiplying
+// his weight: +5 ~ half his lineup's shots (about 20 FGA for a starter), +3 ~ 12-14,
+// 0 = ratings decide, -5 = a tenth of his normal share. Teammates split what's left in proportion.
+export const TEND_TOP = 0.5;
+export function shotShares(onCourt, baseW, tend) {
+  const w = onCourt.map(baseW);
+  if (!tend) return (ps) => w[onCourt.indexOf(ps)];
+  const tot = w.reduce((a, b) => a + b, 0);
+  const p = w.map((x) => x / tot);
+  const t = onCourt.map((ps) => Math.max(-5, Math.min(5, tend[ps.p.id] || 0)));
+  if (t.every((x) => !x)) return (ps) => w[onCourt.indexOf(ps)];
+  const share = p.map((pi, i) => (t[i] > 0 ? pi + (t[i] / 5) ** 1.3 * Math.max(0, TEND_TOP - pi) : t[i] < 0 ? pi * (1 - 0.18 * -t[i]) : pi));
+  const fixed = share.reduce((a, s, i) => a + (t[i] ? s : 0), 0);
+  const free = p.reduce((a, pi, i) => a + (t[i] ? 0 : pi), 0);
+  // untouched players fill the rest; if the set shares alone exceed the whole, scale everything down
+  const room = Math.max(0.05, 1 - fixed);
+  const out = share.map((s, i) => (t[i] ? s : free ? (p[i] / free) * room : 0));
+  return (ps) => out[onCourt.indexOf(ps)];
+}
 const isGuard = (p) => p.pos === 'PG' || p.pos === 'SG';
 const isBig = (p) => p.pos === 'PF' || p.pos === 'C';
 
@@ -421,7 +439,7 @@ export class Game {
     const forcedPs = forced && off.onCourt.find((ps) => ps.p.id === forced.pid);
     if (forcedPs) shooter = forcedPs;
     else if (putback && r.chance(0.6)) shooter = putback;
-    else shooter = this.weighted(off.onCourt, (ps) => Math.exp((this.eff(ps, ps.r.off) - 60) / 18 + mm(ps) / 12 + (off.tactics.shotTend?.[ps.p.id] || 0) * TEND_K));
+    else shooter = this.weighted(off.onCourt, shotShares(off.onCourt, (ps) => Math.exp((this.eff(ps, ps.r.off) - 60) / 18 + mm(ps) / 12), off.tactics.shotTend));
 
     const s = shooter.r;
     const base = { rim: 0.35, post: 0.12, mid: 0.19, three: 0.3 };
