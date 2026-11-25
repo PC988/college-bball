@@ -64,6 +64,33 @@ const store = {
   remove() { try { localStorage.removeItem(SAVE_KEY); } catch { /* ignore */ } },
 };
 const save = () => store.set(C.serializeCampaign(ctx));
+// ---------- save backup: export to a file, import from one ----------
+async function exportText(text, name) {
+  const file = new File([text], name, { type: 'application/json' });
+  try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return; } } catch (e) { if (e.name === 'AbortError') return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(file); a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+function exportSave() {
+  const st = ctx.state;
+  exportText(C.serializeCampaign(ctx), `hoops-${ctx.school.abbr || st.schoolId}-${st.year}-day${st.day}.json`.toLowerCase());
+}
+function importSave(file) {
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = () => {
+    const text = String(r.result);
+    let next;
+    try { const j = JSON.parse(text); if (!j.seed || !j.schoolId) throw new Error('not a College Hoops Manager save'); next = C.loadCampaign(text); }
+    catch (e) { toast(`Import failed: ${e.message}. Your current save is untouched.`, 'bad'); const el = $('loadErr'); if (el) { el.classList.remove('hidden'); el.textContent = `Import failed: ${e.message}. Your current save is untouched.`; } return; }
+    void next;
+    store.set(text);
+    try { sessionStorage.setItem('cbbm-autocontinue', '1'); } catch { /* ignore */ }
+    location.reload();
+  };
+  r.readAsText(file);
+}
 
 // ---------- start screen ----------
 function startScreen() {
@@ -102,8 +129,16 @@ function startScreen() {
   const saved = store.get();
   if (saved) {
     $('continueBtn').classList.remove('hidden');
-    $('continueBtn').onclick = () => { $('continueBtn').textContent = 'Loading...'; setTimeout(() => { ctx = C.loadCampaign(saved); enterGame(); }, 30); };
+    $('continueBtn').onclick = () => { $('continueBtn').textContent = 'Loading...'; setTimeout(() => {
+      // a save that fails to load is never deleted: show why and offer to export it
+      try { ctx = C.loadCampaign(saved); enterGame(); }
+      catch (e) { $('continueBtn').textContent = 'Continue saved game'; $('loadErr').classList.remove('hidden'); $('loadErr').innerHTML = `Your save could not be loaded (${esc(e.message)}). It has NOT been deleted. <button class="btn wide" id="errExport">Download it as a file</button>`; $('errExport').onclick = () => exportText(saved, 'hoops-save-backup.json'); }
+    }, 30); };
   }
+  let auto = false; try { auto = sessionStorage.getItem('cbbm-autocontinue') === '1'; sessionStorage.removeItem('cbbm-autocontinue'); } catch { /* ignore */ }
+  if (saved && auto) $('continueBtn').click();
+  $('importBtn').onclick = () => $('importFile').click();
+  $('importFile').onchange = () => importSave($('importFile').files[0]);
 }
 
 // ---------- game ----------
@@ -519,7 +554,7 @@ function sheetState() {
   return `<h2>${esc(stName(st))}</h2>
     <div class="note">${open.length} uncommitted recruits${SK() ? ` · ${open.filter((r) => r.stars >= 4).length} four or five star` : ''}${st === ctx.school.state ? ' · home state' : ''}</div>
     ${here ? '<div class="note" style="color:var(--green)">Your scout is here.</div>' : `<button class="btn primary wide" data-act="travel">Send scout here · ${cost} AP · ${C.milesBetween(ctx.state.scoutAt, st).toLocaleString()} mi</button>`}
-    ${ev && ev.state === st ? `<div class="sec">Event today</div><div class="game-row"><b>★ ${esc(ev.name)}</b><div class="who">The top ${ev.top} recruits in the class, all in one gym.</div>${ev.id === 'all-american' ? (() => { const ids = C.eventPlayers(ctx, ev); const team = (k) => ids.filter((_, i) => i % 2 === k).map((id) => `<div>${nmB(ctx.byId[id])} <span class="muted">${ctx.byId[id].pos}</span></div>`).join(''); return `<div class="mcdteams"><div><b>East</b>${team(0)}</div><div><b>West</b>${team(1)}</div></div>`; })() : ''}<button class="btn wide" data-act="event" ${here && !ctx.state.gameToday ? '' : 'disabled'}>Scout the event · ${evCost} AP</button></div>` : ''}
+    ${ev && ev.state === st ? `<div class="sec">Event today</div><div class="game-row"><b>★ ${esc(ev.name)}</b><div class="who">The top ${ev.top} recruits in the class, all in one gym.</div>${ev.id === 'all-american' ? (() => { const ids = C.eventPlayers(ctx, ev); const team = (k) => ids.filter((_, i) => i % 2 === k).map((id) => `<div>${nmB(ctx.byId[id])} <span class="muted">${ctx.byId[id].pos}</span></div>`).join(''); return `<div class="mcdteams"><div><b>East</b>${team(0)}</div><div><b>West</b>${team(1)}</div></div>`; })() : ''}${ev.id === 'all-american' && ctx.state.gameToday === ev.id ? `${ctx.state.mcd?.year === ctx.state.year ? `<div class="note">${ctx.state.mcd.s[0] > ctx.state.mcd.s[1] ? 'East' : 'West'} won ${Math.max(...ctx.state.mcd.s)}-${Math.min(...ctx.state.mcd.s)}. MVP ${nmB(ctx.byId[ctx.state.mcd.mvp.pid])}: ${esc(ctx.state.mcd.mvp.line)}.</div>` : ''}<button class="btn primary wide" data-act="mcdwatch">${ctx.state.mcd?.year === ctx.state.year ? 'Watch it again' : 'Watch the game live'}</button>` : `<button class="btn wide" data-act="event" ${here && !ctx.state.gameToday ? '' : 'disabled'}>${ev.id === 'all-american' ? 'Scout and watch the game' : 'Scout the event'} · ${evCost} AP</button>`}</div>` : ''}
     ${segHtml('st', [['games', `Games (${games.length})`], ['players', `Players (${list.length})`]], tab, 'data-sttab')}
     ${tab === 'games' ? `${here ? '' : '<div class="note">Send your scout here to watch a game in person.</div>'}
     ${games.length ? games.map((g) => {
@@ -639,7 +674,7 @@ function sheetEndDay() {
   const back = C.travelCost(ctx.state.scout, ctx.school.state, ctx.state.scoutAt);
   return `<h2>End day ${ctx.state.day}</h2><div class="note">Your scout is in ${esc(where)}. Tonight you play your game.</div>
     <div class="choice">
-      <button class="btn primary" data-end="stay">Stay overnight in ${esc(where)}<small>${ctx.state.scoutAt === "INTL" ? "Free overseas." : `Costs ${C.COSTS.lodging} AP tomorrow.`} Start the day already here.</small></button>
+      <button class="btn primary" data-end="stay">Stay overnight in ${esc(where)}<small>Free. Start the day already here.</small></button>
       <button class="btn" data-end="home">Fly home<small>Free tonight. Going back costs ${back} AP.</small></button>
     </div>`;
 }
@@ -666,7 +701,8 @@ function sheetSummary() {
 
 function sheetMenu() {
   return `<h2>Menu</h2><div class="note">Scout: ${esc(ctx.state.scout.name)} · accuracy ${ctx.state.scout.accuracy}, efficiency ${ctx.state.scout.efficiency}, charisma ${ctx.state.scout.charisma}, speed ${ctx.state.scout.speed}</div>
-    <div class="note">Your game saves automatically on this device.</div>
+    <div class="note">Your game saves automatically on this device. Updates to the game never delete it. Export a copy now and then as a backup, or to move your career to another device.</div>
+    <div class="two"><button class="btn" data-export>Export save</button><button class="btn" data-import>Import save</button></div>
     <button class="btn wide" data-new2>Start a new game</button>`;
 }
 
@@ -680,6 +716,8 @@ function bindSheet(body) {
   on('[data-hswatch]', (b) => act(C.attendGame(ctx, b.dataset.hswatch)));
   on('[data-end]', (b) => doEndDay(b.dataset.end));
   on('[data-close]', () => closeSheet());
+  on('[data-export]', () => exportSave());
+  on('[data-import]', () => $('importFile').click());
   on('[data-f]', (b) => { ui.board[b.dataset.f] = b.dataset.v; renderSheet(); });
   on('[data-new]', () => { store.remove(); location.reload(); });
   on('[data-advance]', () => openPreOff());
@@ -714,7 +752,8 @@ function bindSheet(body) {
     const a = b.dataset.act;
     if (a === 'travel') { const res = C.travel(ctx, ui.sel); act(res); if (res.ok) { const [x, y] = posOf(ui.sel); animateTo(x, y, Math.max(view.k, 2.6)); } return; }
     if (a === 'travelR') { const st = ctx.byId[rid].state; const res = C.travel(ctx, st); act(res); return; }
-    if (a === 'event') return act(C.attendEvent(ctx));
+    if (a === 'event') { const res = C.attendEvent(ctx); act(res); if (res.ok && C.eventToday(ctx)?.id === 'all-american') { closeSheet(); startLive(C.mcdGame(ctx), 'mcd'); } return; }
+    if (a === 'mcdwatch') { closeSheet(); return startLive(C.mcdGame(ctx), 'mcd'); }
     if (a === 'film') return act(C.watchFilm(ctx, rid));
     if (a === 'exactPick') { ui.pickExact = !ui.pickExact; return render(); }
     if (a === 'phone') return act(C.phoneCall(ctx, rid));
@@ -1256,9 +1295,9 @@ function openPlayerCard(pid) {
 
 // ---------- live game ----------
 const live = { gm: null, speed: 1, timer: null, done: false, view: 'pbp', hot: {}, faces: {}, pick: null };
-function startLive() {
-  const gm = ctx.state.over ? C.prepareMMGame(ctx) : C.prepareUserGame(ctx);
-  Object.assign(live, { gm, speed: 1, done: false, view: 'pbp', hot: {}, faces: {}, pick: null });
+function startLive(gmIn = null, kind = 'game') {
+  const gm = gmIn || (ctx.state.over ? C.prepareMMGame(ctx) : C.prepareUserGame(ctx));
+  Object.assign(live, { gm, kind, speed: 1, done: false, view: 'pbp', hot: {}, faces: {}, pick: null });
   gm.interactive = true;
   $('live').classList.remove('hidden');
   $('feed').innerHTML = '';
@@ -1326,7 +1365,7 @@ function tickLive() {
 function addFeed(evs) {
   const gm = live.gm;
   const abbr = { home: gm.sides.home.team.school.abbr, away: gm.sides.away.team.school.abbr };
-  const html = evs.map((e) => `<div class="ev ${e.type} ${e.team === gm.userSide ? 'me' : ''}"><span class="c">${Math.floor(e.clock / 60)}:${String(e.clock % 60).padStart(2, '0')}<span class="tm">${esc(abbr[e.team] || '')}</span></span>${e.pid ? liveFace(e.team, e.pid, 30) : '<span></span>'}<span class="x">${esc(e.text)}${e.note ? ` <b class="nt">${esc(e.note)}</b>` : ''}</span></div>`).reverse().join('');
+  const html = evs.map((e) => `<div class="ev ${e.type} ${e.team === gm.userSide && !gm.exhibition ? 'me' : ''}"><span class="c">${Math.floor(e.clock / 60)}:${String(e.clock % 60).padStart(2, '0')}<span class="tm">${esc(abbr[e.team] || '')}</span></span>${e.pid ? liveFace(e.team, e.pid, 30) : '<span></span>'}<span class="x">${esc(e.text)}${e.note ? ` <b class="nt">${esc(e.note)}</b>` : ''}</span></div>`).reverse().join('');
   $('feed').insertAdjacentHTML('afterbegin', html);
   const feed = $('feed');
   while (feed.children.length > 250) feed.lastChild.remove();
@@ -1339,7 +1378,7 @@ function liveFace(sideKey, pid, size) {
   const sd = gm.sides[sideKey];
   const ps = sd && sd.players.find((x) => x.p.id === pid);
   if (!ps) return '<span></span>';
-  const jersey = sideKey === gm.userSide ? teamColor() : sd.team.school.color || '#5b6b7d';
+  const jersey = sideKey === gm.userSide && !gm.exhibition ? teamColor() : sd.team.school.color || '#5b6b7d';
   return (live.faces[key] = `<span class="lface">${faceSvg(ps.p, { size, jersey })}</span>`);
 }
 // Critical moment: the clock is low and the game is close. Pick the shooter, then the shot.
@@ -1415,7 +1454,7 @@ function renderLive() {
   const gm = live.gm;
   const tac = gm.sides[gm.userSide].tactics;
   renderScore();
-  const views = [['pbp', 'Play-by-play'], ['box', 'Box score']].concat(live.done ? [] : [['coach', 'Coach']]);
+  const views = [['pbp', 'Play-by-play'], ['box', 'Box score']].concat(live.done || gm.exhibition ? [] : [['coach', 'Coach']]);
   if (live.done && live.view === 'coach') live.view = 'box';
   $('liveCtrl').innerHTML = `${live.done ? '' : segHtml('speed', [[0, 'Pause'], [1, '1x'], [2, '2x'], [4, '4x'], [16, 'Fast']], live.speed, 'data-speed')}${segHtml('lv', views, live.view, 'data-lview')}`;
   $('lcoach').innerHTML = live.done ? '' : `<div class="sec">Tempo</div>${segHtml('tempo', TEMPO, tac.tempo, 'data-ltac')}<div class="sec">Defense</div>${segHtml('defense', DEF, tac.defense, 'data-ltac')}<div class="sec">Offense focus</div>${segHtml('focus', FOCUS, tac.focus, 'data-ltac')}<div class="note">Changes take effect on the next possession.</div>`;
@@ -1425,7 +1464,7 @@ function renderLive() {
   renderLiveBox();
   $('liveCtrl').querySelectorAll('[data-lview]').forEach((b) => (b.onclick = () => { live.view = b.dataset.v; renderLive(); }));
   $('liveFoot').innerHTML = live.done
-    ? '<button class="btn" id="lBox">Box score</button><button class="btn primary" id="lDone">Done</button>'
+    ? (gm.exhibition ? '<button class="btn primary" id="lDone">Done</button>' : '<button class="btn" id="lBox">Box score</button><button class="btn primary" id="lDone">Done</button>')
     : '<button class="btn" id="lSkip">Sim to end</button>';
   $('liveCtrl').querySelectorAll('[data-speed]').forEach((b) => (b.onclick = () => { live.speed = Number(b.dataset.v); renderLive(); tickLive(); }));
   $('lcoach').querySelectorAll('[data-ltac]').forEach((b) => (b.onclick = () => {
@@ -1442,7 +1481,8 @@ function finishLive() {
   if (live.done) return;
   live.done = true;
   clearTimeout(live.timer);
-  if (ctx.state.over) C.finishMMGame(ctx, live.gm); else C.finishUserGame(ctx, live.gm);
+  if (live.kind === 'mcd') C.finishMcdGame(ctx, live.gm);
+  else if (ctx.state.over) C.finishMMGame(ctx, live.gm); else C.finishUserGame(ctx, live.gm);
   save();
   renderLive();
   render();
@@ -1512,5 +1552,5 @@ function sheetOffseason() {
 }
 
 // test hook: lets automated playtests drive long seasons quickly
-window.cbbmDebug = { get ctx() { return ctx; }, get live() { return live; }, endDay: (c) => { C.endDay(ctx, c); save(); render(); } };
+window.cbbmDebug = { get ctx() { return ctx; }, get live() { return live; }, openState: (c) => { ui.sel = c; ui.selRecruit = null; openSheet('state', 'half'); render(); }, endDay: (c) => { C.endDay(ctx, c); save(); render(); } };
 startScreen();

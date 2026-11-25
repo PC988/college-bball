@@ -21,7 +21,7 @@ export const MAX_OFFERS = 10;
 export const AP_PER_DAY = 20;
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-export const COSTS = { film: 1, exact: 4, phone: 1, visit: 5, offer: 1, lodging: 2, event: 6 };
+export const COSTS = { film: 1, exact: 4, phone: 1, visit: 5, offer: 1, lodging: 0, event: 6 };
 
 export const EVENTS = [
   { id: 'all-american', day: 10, name: "McDonald's All American Game", state: 'TX', top: 20, strength: 1 },
@@ -329,6 +329,28 @@ export function attendEvent(ctx) {
   return okMsg(ctx, `Scouted the ${ev.name} (${cost} AP). Potential revealed for the top ${ev.top} recruits in the class.`, 'event');
 }
 
+// The McDonald's All American Game itself: East vs West, watchable live once your scout is in the gym.
+export function mcdGame(ctx) {
+  const ev = EVENTS.find((e) => e.id === 'all-american');
+  const ids = eventPlayers(ctx, ev);
+  const side = (k, name, abbr, color) => ({ school: { id: `mcd-${abbr}`, name, abbr, color }, roster: ids.filter((_, i) => i % 2 === k).map((id) => ctx.byId[id]), tactics: { tempo: 'fast', depth: 10 } });
+  const gm = new Game(side(0, 'East All-Americans', 'EAST', '#c62828'), side(1, 'West All-Americans', 'WEST', '#1565c0'), { seed: `${ctx.state.seed}:${ctx.state.year}:mcdgame`, neutral: true });
+  gm.userSide = 'home';
+  gm.exhibition = true;
+  return gm;
+}
+export function finishMcdGame(ctx, gm) {
+  const res = gm.result();
+  const all = [...res.home.players.map((p) => ({ ...p, t: 'East' })), ...res.away.players.map((p) => ({ ...p, t: 'West' }))];
+  const gs = (l) => l.PTS + 0.4 * l.FGM - 0.7 * l.FGA + 0.5 * (l.ORB + l.DRB) + 0.7 * l.AST + l.STL + 0.7 * l.BLK - l.TO;
+  const winT = res.home.score > res.away.score ? 'East' : 'West';
+  const mvp = all.filter((p) => p.t === winT).sort((a, b) => gs(b) - gs(a))[0];
+  const again = ctx.state.mcd?.year === ctx.state.year;
+  ctx.state.mcd = { year: ctx.state.year, s: [res.home.score, res.away.score], mvp: mvp && { pid: mvp.id, line: `${mvp.PTS} pts, ${mvp.ORB + mvp.DRB} reb, ${mvp.AST} ast` } };
+  if (!again) log(ctx, `McDonald's All American Game: ${winT} wins ${Math.max(res.home.score, res.away.score)}-${Math.min(res.home.score, res.away.score)}. MVP ${mvp ? fullName(ctx.byId[mvp.id]) + ' (' + ctx.state.mcd.mvp.line + ')' : ''}.`, 'event');
+  return res;
+}
+
 export function phoneCall(ctx, rid) {
   if (ctx.state.phonedToday.includes(rid)) return fail('Already called this recruit today.');
   if (ctx.state.commits[rid]) return fail('This recruit has committed.');
@@ -613,9 +635,8 @@ export function endDay(ctx, choice = 'stay') {
   if (st.over) return fail('The recruiting period is over.');
   const home = ctx.school.state;
   if (choice === 'home' && st.scoutAt !== home) { st.scoutAt = home; st.lodgingDue = 0; log(ctx, `${st.scout.name} flew home to ${STATES[home].name}.`, 'travel'); }
-  else if (st.scoutAt === 'INTL') { st.lodgingDue = 0; log(ctx, `${st.scout.name} stays overseas (no lodging cost).`, 'travel'); }
-  else if (st.scoutAt !== home) { st.lodgingDue = COSTS.lodging; log(ctx, `${st.scout.name} stays overnight in ${st.scoutAt === 'INTL' ? 'the International region' : STATES[st.scoutAt].name} (${COSTS.lodging} AP tomorrow).`, 'travel'); }
-  else st.lodgingDue = 0;
+  else if (st.scoutAt !== home) { st.lodgingDue = 0; log(ctx, `${st.scout.name} stays on the road in ${st.scoutAt === 'INTL' ? 'the International region' : STATES[st.scoutAt].name} (no lodging cost).`, 'travel'); }
+  else st.lodgingDue = 0; // staying away from home is free (Preston's rule, 2026-11-25)
 
   // today's game: play it with your tactics if you haven't, then the rest of the round
   const g = ctx.schedule[st.day - 1];
@@ -647,7 +668,7 @@ export function endDay(ctx, choice = 'stay') {
   }
   st.day++;
   st.gamePlayed = false;
-  st.ap = st.apMax - st.lodgingDue;
+  st.ap = st.apMax; st.lodgingDue = 0;
   st.gameToday = null;
   st.phonedToday = [];
   st.visitedToday = [];

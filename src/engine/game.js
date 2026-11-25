@@ -298,7 +298,7 @@ export class Game {
   //  - the finish: last 2:00 of the 2nd half or OT. Never while they're fouling you (you up 1-9 inside a minute).
   //  - a tied or down-1-to-3 game inside 30 seconds can add one extra call, up to 3.
   isCritical(offKey) {
-    if (offKey !== this.userSide || this.clock <= 0) return false;
+    if (this.exhibition || offKey !== this.userSide || this.clock <= 0) return false;
     this.calls ||= 0;
     this.callTarget ||= this.rng.chance(0.5) ? 3 : 2;
     const T = this.callTarget, n = this.calls;
