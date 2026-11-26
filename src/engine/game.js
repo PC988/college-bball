@@ -12,7 +12,7 @@ export const DEFAULT_TACTICS = {
   tempo: 'normal', // slow | normal | fast
   defense: 'man', // man | zone | press
   focus: 'balanced', // inside | balanced | perimeter
-  depth: 8, // rotation size 7-10
+  depth: 8, // rotation size 7-12
   rotation: null, // optional array of player ids, starters first
   shotTend: null, // optional { playerId: -5..5 } shot tendency set by the coach
   minutes: null, // optional { playerId: minutes } set by the coach; soft targets, scaled to 200
@@ -23,6 +23,8 @@ export const TARGET_MIN = {
   8: [32, 31, 30, 29, 28, 20, 16, 14],
   9: [30, 29, 28, 27, 26, 18, 16, 14, 12],
   10: [28, 27, 26, 25, 24, 18, 16, 14, 12, 10],
+  11: [27, 26, 25, 24, 23, 17, 15, 13, 12, 10, 8],
+  12: [26, 25, 24, 23, 22, 16, 14, 12, 11, 10, 9, 8],
 };
 
 const POS_IDX = { PG: 0, SG: 1, SF: 2, PF: 3, C: 4 };
@@ -102,7 +104,7 @@ class Side {
       : pickStarters(this.team.roster);
     for (const p of this.team.roster) if (!order.includes(p)) order.push(p);
     this.order = order.map((p) => this.players.find((ps) => ps.p === p));
-    const depth = clamp(this.tactics.depth, 7, 10);
+    const depth = clamp(this.tactics.depth, 7, 12);
     const t = TARGET_MIN[depth];
     this.order.forEach((ps, i) => (ps.target = (t[i] || 0) * 60));
     const mins = this.tactics.minutes;

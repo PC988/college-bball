@@ -843,7 +843,7 @@ function render() {
 const TEMPO = [['slow', 'Slow'], ['normal', 'Normal'], ['fast', 'Fast']];
 const DEF = [['man', 'Man'], ['zone', 'Zone'], ['press', 'Press']];
 const FOCUS = [['inside', 'Inside'], ['balanced', 'Balanced'], ['perimeter', 'Outside']];
-const DEPTH = [[7, '7'], [8, '8'], [9, '9'], [10, '10']];
+const DEPTH = [[7, '7'], [8, '8'], [9, '9'], [10, '10'], [11, '11'], [12, 'All 12']];
 const myTeam = () => ctx.world.teams[ctx.state.schoolId];
 const recOf = (id) => standings(ctx.world, ctx.season)[id] || { W: 0, L: 0, cW: 0, cL: 0 };
 const segHtml = (key, opts, cur, attr = 'data-tac') => `<div class="seg">${opts.map(([v, l]) => `<button ${attr}="${key}" data-v="${v}" class="${String(cur) === String(v) ? 'on' : ''}">${l}</button>`).join('')}</div>`;
@@ -1049,7 +1049,7 @@ function renderRoster() {
         <span class="mins"><button data-min="-1" data-id="${p.id}" aria-label="Fewer minutes" ${plan[p.id] <= 0 ? 'disabled' : ''}>−</button><b>${plan[p.id]}</b><button data-min="1" data-id="${p.id}" aria-label="More minutes" ${plan[p.id] >= 40 ? 'disabled' : ''}>+</button></span>
         <span class="mv"><button data-mv="-1" data-id="${p.id}" aria-label="Move up" ${i === 0 ? 'disabled' : ''}>▲</button><button data-mv="1" data-id="${p.id}" aria-label="Move down" ${i === order.length - 1 ? 'disabled' : ''}>▼</button></span></div>`;
   root.innerHTML = `<h2>${esc(ctx.school.name)} roster</h2>
-    <div class="note" style="margin-bottom:8px">Team OVR ${teamOvr(myTeam().roster)} · ${myTeam().roster.length}/12 players. Arrows move a player into any slot, any position. Minutes are targets: fatigue, fouls and close games still shift them.</div>
+    <div class="note" style="margin-bottom:8px">Team OVR ${teamOvr(myTeam().roster)} · ${myTeam().roster.length}/12 players. Arrows move a player into any slot, any position. Any player can get minutes, bench included: tap + on him. Minutes are targets: fatigue, fouls and close games still shift them.</div>
     <div class="mintotal ${total === 200 ? '' : 'off'}">Planned minutes <b>${total}</b> / 200${total === 200 ? '' : ` · ${total > 200 ? 'over' : 'under'}: the game scales everyone to fit`}</div>
     <div class="panel" style="padding:4px 12px">${order.map(row).join('')}</div>
     ${ctx.state.tactics.rotation || ctx.state.tactics.minutes ? '<button class="btn wide" data-autorot>Reset to automatic lineup and minutes</button>' : ''}`;
