@@ -78,20 +78,41 @@ function exportSave() {
   const st = ctx.state;
   exportText(C.serializeCampaign(ctx), `hoops-${ctx.school.abbr || st.schoolId}-${st.year}-day${st.day}.json`.toLowerCase());
 }
+// Dropbox share links (www.dropbox.com/s/... or /scl/fi/...?rlkey=..&dl=0) point at a web page. The same path on
+// dl.dropboxusercontent.com is the raw file and allows cross-site reads, so convert, keep rlkey, drop dl.
+function directLink(raw) {
+  const u = new URL(raw.trim());
+  if (/(^|\.)dropbox\.com$/.test(u.hostname) && u.hostname !== 'dl.dropboxusercontent.com') { u.hostname = 'dl.dropboxusercontent.com'; u.searchParams.delete('dl'); u.searchParams.delete('raw'); }
+  return u.toString();
+}
+async function importFromLink(raw) {
+  if (!raw || !raw.trim()) return;
+  let url;
+  try { url = directLink(raw); } catch { return importFail('That is not a link'); }
+  toast('Downloading save…');
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`the link answered ${res.status}${res.status === 404 ? ' (file not found or link turned off)' : ''}`);
+    importText(await res.text());
+  } catch (e) { importFail(`${e.message === 'Failed to fetch' ? 'could not reach the link (check your connection, or download the file and use Import a save file)' : e.message}`); }
+}
+function importFail(msg) { toast(`Import failed: ${msg}. Your current save is untouched.`, 'bad'); const el = $('loadErr'); if (el) { el.classList.remove('hidden'); el.textContent = `Import failed: ${msg}. Your current save is untouched.`; } }
 function importSave(file) {
   if (!file) return;
   const r = new FileReader();
-  r.onload = () => {
-    const text = String(r.result);
+  r.onload = () => importText(String(r.result));
+  r.readAsText(file);
+}
+function importText(text) {
+  {
     let next;
     try { const j = JSON.parse(text); if (!j.seed || !j.schoolId) throw new Error('not a College Hoops Manager save'); next = C.loadCampaign(text); }
-    catch (e) { toast(`Import failed: ${e.message}. Your current save is untouched.`, 'bad'); const el = $('loadErr'); if (el) { el.classList.remove('hidden'); el.textContent = `Import failed: ${e.message}. Your current save is untouched.`; } return; }
+    catch (e) { return importFail(e.message.startsWith('Unexpected') || e.message.includes('JSON') ? 'that file is not a save (if it is a Dropbox link, make sure it is the share link to the .json file)' : e.message); }
     void next;
     store.set(text);
     try { sessionStorage.setItem('cbbm-autocontinue', '1'); } catch { /* ignore */ }
     location.reload();
-  };
-  r.readAsText(file);
+  }
 }
 
 // ---------- start screen ----------
@@ -141,6 +162,7 @@ function startScreen() {
   if (saved && auto) $('continueBtn').click();
   $('importBtn').onclick = () => $('importFile').click();
   $('importFile').onchange = () => importSave($('importFile').files[0]);
+  $('linkBtn').onclick = () => importFromLink($('linkIn').value);
 }
 
 // ---------- game ----------
@@ -726,6 +748,7 @@ function sheetMenu() {
   return `<h2>Menu</h2><div class="note">Scout: ${esc(ctx.state.scout.name)} · accuracy ${ctx.state.scout.accuracy}, efficiency ${ctx.state.scout.efficiency}, charisma ${ctx.state.scout.charisma}, speed ${ctx.state.scout.speed}</div>
     <div class="note">Your game saves automatically on this device. Updates to the game never delete it. Export a copy now and then as a backup, or to move your career to another device.</div>
     <div class="two"><button class="btn" data-export>Export save</button><button class="btn" data-import>Import save</button></div>
+    <div class="linkrow"><input id="menuLink" type="url" placeholder="Or paste a Dropbox link to a save" autocomplete="off"><button class="btn" data-importlink>Import</button></div>
     <button class="btn wide" data-new2>Start a new game</button>
     <div class="note" style="text-align:center">College Hoops Manager ${VERSION}</div>`;
 }
@@ -742,6 +765,7 @@ function bindSheet(body) {
   on('[data-close]', () => closeSheet());
   on('[data-export]', () => exportSave());
   on('[data-import]', () => $('importFile').click());
+  on('[data-importlink]', () => importFromLink($('menuLink').value));
   on('[data-f]', (b) => { ui.board[b.dataset.f] = b.dataset.v; renderSheet(); });
   on('[data-new]', () => { store.remove(); location.reload(); });
   on('[data-advance]', () => openPreOff());

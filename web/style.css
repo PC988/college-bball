@@ -500,3 +500,6 @@ body.sheet-over-live .scrim { z-index: 31; }
 .stand.sg td { overflow-wrap: anywhere; }
 .stand.sg td div.muted { white-space: normal; }
 .ver { font-size: 14px; font-weight: 800; color: var(--muted); vertical-align: middle; margin-left: 4px; }
+
+.linkrow { display: flex; gap: 8px; margin-top: 10px; }
+.linkrow input { flex: 1; min-width: 0; font-size: 16px; padding: 12px; border: 1px solid var(--line, #d5dbe3); border-radius: 12px; }
