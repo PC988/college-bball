@@ -144,6 +144,12 @@ function addStats(world, season, tid, lines) {
     if (line.SEC > 0) s.GP++;
     s.MIN += Math.round(line.SEC / 60);
     for (const k of Object.keys(s)) if (k !== 'tid' && k !== 'GP' && k !== 'MIN' && k in line) s[k] += line[k];
+    // single-game highs this season: PTS, REB, AST, STL, BLK, 3PM (rebuilt on load, since games replay)
+    if (line.SEC > 0) {
+      const g = [line.PTS, line.ORB + line.DRB, line.AST, line.STL, line.BLK, line.TPM];
+      const hi = (s.hi ||= [0, 0, 0, 0, 0, 0]);
+      g.forEach((v, i) => { if (v > hi[i]) hi[i] = v; });
+    }
   }
 }
 

@@ -136,6 +136,7 @@ function freshSeasonState(base) {
     train: {}, trainedToday: [], teamTrainedToday: false,
     namesFrom: base.namesFrom, // name pool switch (see hydrate); carried across seasons
     careers: base.careers || {}, // pid -> season rows, see recordCareers
+    highs: base.highs || {}, // pid -> career single-game highs [PTS, REB, AST, STL, BLK, 3PM]
     alumni: base.alumni || {}, // pid -> 'Name|POS' for everyone who played for you (names outlive the roster)
     prestige: base.prestige || {}, tiers: base.tiers || {}, // per-school prestige/tier that moved off the base data
     scouted: base.scouted || {}, // pid -> 1 once you've seen his potential (in person); kept across seasons
@@ -1000,6 +1001,12 @@ function recordCareers(ctx) {
     if (rows.some((r) => r[0] === st.year)) continue;
     rows.push([st.year, s.GP, Math.round(s.MIN), s.PTS, s.ORB + s.DRB, s.AST, s.STL, s.BLK, s.FGM, s.FGA, s.TPM, s.TPA, s.FTM, s.FTA, sid === st.schoolId ? 1 : 0]);
   }
+  // career single-game highs (regular season), carried across seasons
+  st.highs ||= {};
+  for (const [pid, s] of Object.entries(ps)) if (s.hi && st.careers[pid]) {
+    const h = (st.highs[pid] ||= [0, 0, 0, 0, 0, 0]);
+    s.hi.forEach((v, i) => { if (v > h[i]) h[i] = v; });
+  }
   noteAlumni(ctx);
   // incoming freshmen bring their HS senior year
   for (const sid of Object.keys(ctx.world.teams)) for (const rid of commitsFor(ctx, sid)) {
@@ -1012,6 +1019,13 @@ function pruneCareers(ctx) {
   const live = new Set();
   for (const t of Object.values(ctx.world.teams)) for (const p of t.roster) live.add(p.id);
   for (const [pid, rows] of Object.entries(st.careers || {})) if (!live.has(pid) && !rows.some((r) => r[14] === 1)) delete st.careers[pid];
+  for (const pid of Object.keys(st.highs || {})) if (!st.careers[pid]) delete st.highs[pid];
+}
+// Career single-game highs: past seasons plus the season in progress. [PTS, REB, AST, STL, BLK, 3PM] or null.
+export function careerHighs(ctx, pid) {
+  const past = ctx.state.highs?.[pid], now = (ctx.season.playerStats || {})[pid]?.hi;
+  if (!past && !now) return null;
+  return [0, 1, 2, 3, 4, 5].map((i) => Math.max(past?.[i] || 0, now?.[i] || 0));
 }
 function noteAlumni(ctx) {
   const st = ctx.state;

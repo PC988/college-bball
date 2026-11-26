@@ -1382,6 +1382,7 @@ function sheetPlayer() {
     <div class="facts"><div class="fact"><div class="k">PPG</div><div class="v">${per(s?.PTS || 0)}</div></div><div class="fact"><div class="k">RPG</div><div class="v">${per((s?.ORB || 0) + (s?.DRB || 0))}</div></div><div class="fact"><div class="k">APG</div><div class="v">${per(s?.AST || 0)}</div></div></div>
     <div class="facts"><div class="fact"><div class="k">SPG</div><div class="v">${per(s?.STL || 0)}</div></div><div class="fact"><div class="k">BPG</div><div class="v">${per(s?.BLK || 0)}</div></div><div class="fact"><div class="k">MPG</div><div class="v">${per(s?.MIN || 0)}</div></div></div>
     <div class="note">${g} games · ${s && s.FGA ? Math.round((s.FGM / s.FGA) * 100) : 0}% FG · ${s && s.TPA ? Math.round((s.TPM / s.TPA) * 100) : 0}% 3P · ${s && s.FTA ? Math.round((s.FTM / s.FTA) * 100) : 0}% FT</div>
+    ${highsHtml(p.id)}
     ${careerTable(p.id)}`;
   if (!mine && !full) return head + `<button class="btn primary wide" data-pscout="${p.id}" style="margin-top:12px" ${ctx.state.ap < C.PLAYER_SCOUT_COST ? 'disabled' : ''}>Scout him · ${C.PLAYER_SCOUT_COST} AP</button>
     <div class="note">${known ? 'You scouted him as a recruit, so you know his ceiling.' : 'Ceiling and potential stay hidden until you scout him.'} Scouting reveals his ceiling, potential and every skill rating.</div>`;
@@ -1399,6 +1400,12 @@ function sheetPlayer() {
 }
 const TEND_LABEL = (v) => v >= 5 ? 'Go-to scorer' : v >= 3 ? 'Looks for his shot' : v >= 1 ? 'Slightly aggressive' : v === 0 ? 'Auto' : v >= -2 ? 'Slightly passive' : v >= -4 ? 'Passer first' : 'Never shoots';
 const tendTag = (p) => { const v = ctx.state.tactics.shotTend?.[p.id] || 0; return v ? ` <span class="tend ${v > 0 ? 'up' : 'down'}">Shots ${v > 0 ? '+' : ''}${v}</span>` : ''; };
+// Career single-game highs, between the season averages and the season-by-season table.
+function highsHtml(pid) {
+  const h = C.careerHighs(ctx, pid);
+  if (!h || !h.some(Boolean)) return '';
+  return `<div class="sec">Career highs · single game</div><div class="facts hi">${['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM'].map((k, i) => `<div class="fact"><div class="k">${k}</div><div class="v">${h[i]}</div></div>`).join('')}</div>`;
+}
 // Career: HS senior year, every college season (per game), and a career line.
 function careerTable(pid) {
   const rows = C.careerFor(ctx, pid);
