@@ -497,7 +497,7 @@ function renderSheet() {
   const html = {
     state: sheetState, recruit: sheetRecruit, board: sheetBoard, needs: sheetNeeds, news: sheetNews,
     endday: sheetEndDay, daysum: sheetDaySummary, summary: sheetSummary, menu: sheetMenu,
-    unplayed: sheetUnplayed, box: sheetBox, player: sheetPlayer, offseason: sheetOffseason, preoff: sheetPreOff, train: sheetTrain, draft: sheetDraft, ceremony: sheetCeremony, signings: sheetSignings, combine: sheetCombine,
+    unplayed: sheetUnplayed, box: sheetBox, player: sheetPlayer, offseason: sheetOffseason, preoff: sheetPreOff, train: sheetTrain, draft: sheetDraft, ceremony: sheetCeremony, signings: sheetSignings, prestige: sheetPrestige, combine: sheetCombine,
   }[v]();
   body.innerHTML = html;
   $('sheetBack').classList.toggle('hidden', !sheetStack.length);
@@ -765,6 +765,8 @@ function bindSheet(body) {
   on('[data-cbtab]', (b) => { ui.cbTab = b.dataset.v; renderSheet(); });
   on('[data-dskip]', () => { ui.draftPlaying = false; clearTimeout(draftTimer); ui.draftN = (ctx.state.nba || []).length; renderSheet(); });
   on('[data-ceremony]', () => openSheet('ceremony', 'full'));
+  on('[data-prestige]', () => openSheet('prestige', 'full'));
+  on('[data-preoffback]', () => openSheet('preoff', 'full'));
   on('[data-signings]', () => openSheet('signings', 'full'));
   on('[data-sgtab]', (b) => { ui.sgTab = b.dataset.v; openSheet('signings', 'full'); });
   on('[data-endday]', () => onEndDay());
@@ -964,6 +966,8 @@ function bindPage(root) {
   on('[data-combine]', () => { const r = C.nbaCombine(ctx); if (!r.ok) return toast(r.msg, 'bad'); save(); ui.cbTab = 'measure'; openSheet('combine', 'full'); render(); });
   on('[data-cbshow]', () => { ui.cbTab = ui.cbTab || 'measure'; openSheet('combine', 'full'); });
   on('[data-ceremony]', () => openSheet('ceremony', 'full'));
+  on('[data-prestige]', () => openSheet('prestige', 'full'));
+  on('[data-preoffback]', () => openSheet('preoff', 'full'));
   on('[data-signings]', () => openSheet('signings', 'full'));
   on('[data-sgtab]', (b) => { ui.sgTab = b.dataset.v; openSheet('signings', 'full'); });
   on('[data-advance]', () => openPreOff());
@@ -992,6 +996,7 @@ function bindPage(root) {
   on('[data-ldcat]', (b) => { ui.ldCat = b.dataset.ldcat; render(); });
   on('[data-awyear]', (b) => { ui.awYear = b.dataset.awyear; render(); });
   on('[data-hiyear]', (b) => { ui.hiYear = b.dataset.hiyear; render(); });
+  on('[data-himode]', (b) => { ui.hiMode = b.dataset.v; render(); });
   on('[data-hiaw]', (b) => { ui.awYear = b.dataset.hiaw; ui.seasonView = 'awards'; render(); });
 }
 
@@ -1117,7 +1122,22 @@ function renderSeason() {
       <div class="panel"><div class="kick">Conference Players of the Year</div><table class="stand aw">${grp('conf').map((a) => row(a, a.conf || a.award)).join('')}</table></div>` : '<div class="note">Play some games first.</div>'}`;
   }
   if (v === 'mm' && ctx.state.mm) body = bracketHtml();
-  if (v === 'history') {
+  if (v === 'history' && ui.hiMode === 'records') {
+    const R = C.programRecords(ctx);
+    const who = (x) => (findPlayer(x.pid) ? pname(x.pid, esc(x.name)) : esc(x.name));
+    const pg = (v, n) => (n ? (v / n).toFixed(1) : '0.0');
+    const sy = (y) => `${y}-${String(y + 1).slice(2)}`;
+    const greats = R.greats.map((p, i) => { const t = p.tot; return `<tr><td>${i + 1}</td><td><b>${who(p)}</b> <span class="muted">${p.pos}${p.years ? ` · ${p.years[0] === p.years[1] ? sy(p.years[0]) : `${p.years[0]}-${String(p.years[1] + 1).slice(2)}`}` : ''}</span>
+      <div class="muted aw-s">${p.seasons.length} season${p.seasons.length === 1 ? '' : 's'} · ${pg(t[3], p.GP)} PPG · ${pg(t[4], p.GP)} RPG · ${pg(t[5], p.GP)} APG${p.awards.length ? ` · ${p.awards.length} award${p.awards.length > 1 ? 's' : ''}` : ''}</div>
+      ${p.awards.length ? `<div class="muted aw-s">🏅 ${p.awards.map((a) => `${esc(a.award)} '${String(a.year + 1).slice(2)}`).join(', ')}</div>` : ''}</td><td class="n"><b>${p.legacy}</b></td></tr>`; }).join('');
+    const career = Object.entries(R.career).map(([k, l]) => `<tr><td class="muted">${k}</td><td>${l.length ? l.map((x, i) => `${i ? '<span class="muted">' : '<b>'}${who(x)} ${x.v.toLocaleString()}${i ? '</span>' : '</b>'}`).join('<br>') : '<span class="muted">-</span>'}</td></tr>`).join('');
+    const single = Object.entries(R.single).map(([k, x]) => `<tr><td class="muted">${k}</td><td>${x ? `<b>${who(x)}</b> ${Number.isInteger(x.v) ? x.v : x.v.toFixed(1)} <span class="muted">${sy(x.r[0])}${x.r[15] ? ' (so far)' : ''}</span>` : '<span class="muted">-</span>'}</td></tr>`).join('');
+    body = `${segHtml('hm', [['seasons', 'Seasons'], ['records', 'Program records']], 'records', 'data-himode')}
+      ${R.greats.length ? `<div class="panel"><div class="kick">Greatest players · ${esc(ctx.school.name)}</div><table class="stand aw"><tr><th>#</th><th>Player</th><th class="n">Legacy</th></tr>${greats}</table>
+        <div class="note">Legacy = career production in your uniform (points, boards, assists, steals, blocks) plus awards: POY 40, All-America 25/18/12, Final Four MOP 15, DPOY/FOY 15, position award 10, conference POY 8, All-Tournament 6.</div></div>
+      <div class="panel"><div class="kick">Career leaders</div><table class="stand">${career}</table></div>
+      <div class="panel"><div class="kick">Single-season records</div><table class="stand">${single}</table><div class="note">Per-game records need 10 games.</div></div>` : '<div class="note">Records start once your players log games.</div>'}`;
+  } else if (v === 'history') {
     const h = C.leagueHistory(ctx);
     const done = h.filter((x) => x.champ || (x.awards && x.awards.length));
     const yr = Number(ui.hiYear ?? done.at(-1)?.year);
@@ -1141,8 +1161,8 @@ function renderSeason() {
           <button class="btn ghost" data-hiaw="${x.year}" style="margin-top:8px">Every award from ${sy(x.year)} ›</button></div>` : ''}
         ${x.top25 ? `<div class="panel"><div class="kick">Final Top 25 · after March Madness</div><table class="stand"><tr><th>#</th><th>Team</th><th class="n">Record</th></tr>${x.top25.map(([sid, n, W, L], i) => `<tr class="${sid === ctx.state.schoolId ? 'me' : ''}"><td>${i + 1}</td><td>${esc(n)}${sid === x.champSid ? ' 🏆' : ''}</td><td class="n">${W}-${L}</td></tr>`).join('')}</table></div>` : ''}`;
     }
-    body = `${done.length ? `<div class="filters">${done.map((d) => `<button data-hiyear="${d.year}" class="${d.year === yr ? 'on' : ''}">${sy(d.year)}</button>`).join('')}</div>${season}` : '<div class="note">Champions, rankings and award winners show up here once a season ends.</div>'}
-      <div class="panel"><div class="kick">Your program</div>${h.length ? `<table class="stand"><tr><th>Season</th><th class="n">Record</th><th class="n">Conf</th><th class="n">Class</th><th>March</th></tr>${h.map((x) => `<tr><td>${x.year}-${String(x.year + 1).slice(2)}</td><td class="n">${x.W}-${x.L}</td><td class="n">${x.cW}-${x.cL}</td><td class="n">${x.signed}/${x.slots}</td><td class="muted">${esc(x.mm ? x.mm.replace('Lost in the ', '').replace('National champion', '🏆 Champs') : '—')}</td></tr>`).join('')}</table>` : '<div class="note">Your first season is in progress.</div>'}</div>`;
+    body = `${segHtml('hm', [['seasons', 'Seasons'], ['records', 'Program records']], 'seasons', 'data-himode')}${done.length ? `<div class="filters">${done.map((d) => `<button data-hiyear="${d.year}" class="${d.year === yr ? 'on' : ''}">${sy(d.year)}</button>`).join('')}</div>${season}` : '<div class="note">Champions, rankings and award winners show up here once a season ends.</div>'}
+      <div class="panel"><div class="kick">Your program</div>${h.length ? `<table class="stand"><tr><th>Season</th><th class="n">Record</th><th class="n">Conf</th><th class="n">Class</th><th>March</th><th class="n">Prestige</th></tr>${h.map((x) => `<tr><td>${x.year}-${String(x.year + 1).slice(2)}</td><td class="n">${x.W}-${x.L}</td><td class="n">${x.cW}-${x.cL}</td><td class="n">${x.signed}/${x.slots}</td><td class="muted">${esc(x.mm ? x.mm.replace('Lost in the ', '').replace('National champion', '🏆 Champs') : '—')}</td><td class="n">${x.prestige ? `${x.prestige[1]} <span class="muted">${sgn(x.prestige[1] - x.prestige[0])}</span>` : '—'}</td></tr>`).join('')}</table>` : '<div class="note">Your first season is in progress.</div>'}</div>`;
   }
   root.innerHTML = `<h2>${ctx.state.year}-${String(ctx.state.year + 1).slice(2)} season</h2><div class="filters sv">${[['schedule', 'Schedule'], ['standings', 'Standings'], ['top25', 'Top 25'], ['leaders', 'Leaders'], ['awards', 'Awards']].concat(ctx.state.mm ? [['mm', 'March Madness']] : [], [['history', 'History']]).map(([k, l]) => `<button data-sv="${k}" data-v="${k}" class="${k === v ? 'on' : ''}">${l}</button>`).join('')}</div>${body}`;
   bindPage(root);
@@ -1594,6 +1614,34 @@ function sheetUnplayed() {
 function openPreOff() { ui.cuts = []; ui.cutsTouched = false; openSheet('preoff', 'full'); }
 
 // Before the new season: draft decisions, then walk-on cuts to fit signees under 12.
+// ---------- prestige ----------
+const TIERS = { BB: 'Blue blood', HM: 'High major', MM: 'Mid major', LM: 'Low major' };
+const sgn = (v) => (v > 0 ? `+${v}` : `${v}`);
+function prestigeBlock() {
+  const m = C.prestigeReport(ctx).mine;
+  if (!m) return '';
+  const part = (k, l) => { const v = Math.round(m.parts[k] * 10) / 10; return v ? `<div class="needs-row"><span>${l}</span><b class="${v < 0 ? 'neg' : ''}">${sgn(v)}</b></div>` : ''; };
+  return `<div class="panel"><div class="kick">Program prestige</div>
+    <div class="final ${m.delta >= 0 ? 'w' : 'l'}" style="font-size:34px">${m.p} → ${m.next} <small>(${sgn(m.delta)})</small></div>
+    <div class="note" style="text-align:center">#${m.rank} → <b>#${m.nextRank}</b> nationally · ${TIERS[m.nextTier]}${m.nextTier !== m.tier ? ` <b>(was ${TIERS[m.tier]})</b>` : ''}</div>
+    ${part('record', `${m.W}-${m.L} record vs what your prestige expects`)}${part('march', m.mm || 'Missed March Madness')}${part('recruiting', `Recruiting class${m.cls ? ` #${m.cls}` : ''}`)}${part('draft', `${m.picks} drafted`)}${part('history', 'Pull toward your program\'s history')}
+    <div class="note">Scored against the national average and scaled, so every school's change is relative. Prestige drives recruiting pull and what AI programs aim for.</div>
+    <button class="btn wide" data-prestige>National prestige report</button></div>`;
+}
+function sheetPrestige() {
+  const { rows } = C.prestigeReport(ctx), me = ctx.state.schoolId;
+  const line = (x) => `<tr class="${x.sid === me ? 'me' : ''}"><td>${esc(x.name)} <span class="muted">${x.mm ? x.mm.replace('Lost in the ', 'out in ').replace('National champion', '🏆') : `${x.W}-${x.L}`}</span></td><td class="n">${x.p} → <b>${x.next}</b></td><td class="n ${x.delta < 0 ? 'neg' : ''}">${sgn(x.delta)}</td></tr>`;
+  const by = rows.slice().sort((a, b) => b.delta - a.delta || b.next - a.next);
+  const moves = rows.filter((x) => x.nextTier !== x.tier);
+  const top = rows.slice().sort((a, b) => a.nextRank - b.nextRank).slice(0, 25);
+  return `<h2>Prestige report</h2><div class="note">Changes take effect when the new season starts. Each tier keeps the same number of schools: 6 blue bloods, 74 high majors, 71 mid majors, 214 low majors.</div>
+    ${moves.length ? `<div class="panel"><div class="kick">Tier changes</div><table class="stand">${moves.map((x) => `<tr class="${x.sid === me ? 'me' : ''}"><td>${esc(x.name)}</td><td class="n ${TIER_ORDER_UI.indexOf(x.nextTier) > TIER_ORDER_UI.indexOf(x.tier) ? 'neg' : ''}">${TIERS[x.tier]} → <b>${TIERS[x.nextTier]}</b></td></tr>`).join('')}</table></div>` : ''}
+    <div class="panel"><div class="kick">Biggest risers</div><table class="stand">${by.slice(0, 8).map(line).join('')}</table></div>
+    <div class="panel"><div class="kick">Biggest fallers</div><table class="stand">${by.slice(-8).reverse().map(line).join('')}</table></div>
+    <div class="panel"><div class="kick">Top 25 programs by prestige</div><table class="stand">${top.map((x) => `<tr class="${x.sid === me ? 'me' : ''}"><td>${x.nextRank}</td><td>${esc(x.name)} <span class="muted">${x.nextRank < x.rank ? `▲${x.rank - x.nextRank}` : x.nextRank > x.rank ? `▼${x.nextRank - x.rank}` : ''}</span></td><td class="n">${x.next}</td></tr>`).join('')}</table></div>
+    <button class="btn primary wide" data-preoffback>Back</button>`;
+}
+const TIER_ORDER_UI = ['BB', 'HM', 'MM', 'LM'];
 function sheetPreOff() {
   const draft = C.draftFor(ctx);
   if (!ui.cutsTouched) {
@@ -1612,6 +1660,7 @@ function sheetPreOff() {
     : pv.needCut > canCut ? 'Too many players and no walk-ons left to cut.'
     : pv.needCut ? `Cut ${pv.needCut} more walk-on${pv.needCut > 1 ? 's' : ''} to fit your signees.` : '';
   return `<h2>Offseason</h2>
+    ${prestigeBlock()}
     <div class="note">${pv.seniors.length} senior${pv.seniors.length === 1 ? '' : 's'} graduating · ${pv.signees.length} signee${pv.signees.length === 1 ? '' : 's'} arriving</div>
     <div class="sec">Draft declarations</div>${draftRows || '<div class="note">Nobody declared. Your stars are all back.</div>'}
     <div class="sec">Walk-ons · no scholarship, cut them to make room</div>${walkRows || '<div class="note">No returning walk-ons.</div>'}

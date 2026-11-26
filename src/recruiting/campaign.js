@@ -136,6 +136,8 @@ function freshSeasonState(base) {
     train: {}, trainedToday: [], teamTrainedToday: false,
     namesFrom: base.namesFrom, // name pool switch (see hydrate); carried across seasons
     careers: base.careers || {}, // pid -> season rows, see recordCareers
+    alumni: base.alumni || {}, // pid -> 'Name|POS' for everyone who played for you (names outlive the roster)
+    prestige: base.prestige || {}, tiers: base.tiers || {}, // per-school prestige/tier that moved off the base data
     scouted: base.scouted || {}, // pid -> 1 once you've seen his potential (in person); kept across seasons
   };
 }
@@ -163,6 +165,10 @@ export function hydrate(state) {
   if (state.rosters) {
     for (const [id, arr] of Object.entries(state.rosters)) if (world.teams[id]) world.teams[id].roster = arr.map(unpackPlayer);
   }
+  // Prestige and tier move each offseason (see applyPrestige). Each team gets its own copy of its school so the
+  // static data stays untouched; starting rosters above were already built from the base values.
+  state.prestige ||= {}; state.tiers ||= {};
+  for (const [id, t] of Object.entries(world.teams)) t.school = { ...t.school, prestige: state.prestige[id] ?? t.school.prestige, tier: state.tiers[id] ?? t.school.tier };
   state.year = world.year;
   state.tactics ||= { ...DEFAULT_TACTICS };
   state.userGames ||= {};
@@ -176,7 +182,7 @@ export function hydrate(state) {
   const cls = generateRecruitClass(state.seed, world.year + 1);
   useNames(2); // anything generated from here on (walk-ons, new players) uses the big pool
   const byId = Object.fromEntries(cls.recruits.map((r) => [r.id, r]));
-  const schools = Object.fromEntries(SCHOOL_DATA.schools.map((s) => [s.id, s]));
+  const schools = Object.fromEntries(SCHOOL_DATA.schools.map((s) => [s.id, world.teams[s.id]?.school || s]));
   const slotsFor = (id) => openScholarships(world.teams[id].roster);
   const ctx = { state, world, season, school, recruits: cls.recruits, byId, hsTeams: cls.teams, byState: cls.byState, schools, slotsFor };
   ctx.slots = slotsFor(state.schoolId);
@@ -994,6 +1000,7 @@ function recordCareers(ctx) {
     if (rows.some((r) => r[0] === st.year)) continue;
     rows.push([st.year, s.GP, Math.round(s.MIN), s.PTS, s.ORB + s.DRB, s.AST, s.STL, s.BLK, s.FGM, s.FGA, s.TPM, s.TPA, s.FTM, s.FTA, sid === st.schoolId ? 1 : 0]);
   }
+  noteAlumni(ctx);
   // incoming freshmen bring their HS senior year
   for (const sid of Object.keys(ctx.world.teams)) for (const rid of commitsFor(ctx, sid)) {
     const r = ctx.byId[rid];
@@ -1006,6 +1013,147 @@ function pruneCareers(ctx) {
   for (const t of Object.values(ctx.world.teams)) for (const p of t.roster) live.add(p.id);
   for (const [pid, rows] of Object.entries(st.careers || {})) if (!live.has(pid) && !rows.some((r) => r[14] === 1)) delete st.careers[pid];
 }
+function noteAlumni(ctx) {
+  const st = ctx.state;
+  st.alumni ||= {};
+  for (const p of ctx.world.teams[st.schoolId].roster) st.alumni[p.id] = `${fullName(p)}|${p.pos}`;
+}
+
+// ---------- prestige: programs rise and fall ----------
+// Each offseason every school's prestige moves on what it did: wins against what its prestige expects, how far it went
+// in March, its recruiting class, players drafted, and a slow pull back toward its historical level. Changes are
+// centered so the league as a whole doesn't drift. Tier counts never change (6 BB, 74 HM, 71 MM, 214 LM): at each
+// tier line, up to two climbers swap places with two sliders when the climber now has the higher prestige.
+const TIER_ORDER = ['BB', 'HM', 'MM', 'LM'];
+const MM_PTS = { 'National champion': 9, 'Lost in the National Championship': 7.5, 'Lost in the Final Four': 6.5, 'Lost in the Elite Eight': 5, 'Lost in the Sweet 16': 3.5, 'Lost in the Round of 32': 2, 'Lost in the Round of 64': 1, 'Lost in the First Four': 0.5 };
+const baseSchool = (sid) => SCHOOL_DATA.schools.find((s) => s.id === sid);
+export function prestigeReport(ctx) {
+  const st = ctx.state;
+  if (ctx._prestige?.year === st.year && ctx._prestige.n === Object.keys(st.commits).length + (st.nba?.length || 0) + (st.mm?.champ ? 1 : 0)) return ctx._prestige.r;
+  const rec = standings(ctx.world, ctx.season);
+  const classRank = Object.fromEntries(classRankings(ctx).map((c) => [c.sid, c.place]));
+  const nba = {}; for (const x of st.nba || []) nba[x.sid] = (nba[x.sid] || 0) + 1;
+  const rows = Object.entries(ctx.world.teams).map(([sid, t]) => {
+    const p = t.school.prestige, base = baseSchool(sid)?.prestige ?? p;
+    const r = rec[sid] || { W: 0, L: 0 };
+    const w = r.W + r.L ? r.W / (r.W + r.L) : 0.5;
+    const exp = clamp(0.25 + p / 160, 0.3, 0.85);
+    const mmRes = st.mm ? T.tourneyResult(st.mm, sid) : null;
+    const parts = {
+      record: (w - exp) * 16,
+      march: mmRes ? MM_PTS[mmRes] ?? 1 : p >= 75 ? -2 : p >= 60 ? -1 : 0,
+      recruiting: classRank[sid] <= 5 ? 2 : classRank[sid] <= 15 ? 1.5 : classRank[sid] <= 30 ? 1 : 0,
+      draft: Math.min(2.5, 0.7 * (nba[sid] || 0)),
+      history: (base - p) * 0.08,
+    };
+    return { sid, name: t.school.name, tier: t.school.tier, p, W: r.W, L: r.L, mm: mmRes, cls: classRank[sid] || null, picks: nba[sid] || 0, parts, raw: Object.values(parts).reduce((a, b) => a + b, 0) };
+  });
+  const mean = rows.reduce((a, x) => a + x.raw, 0) / rows.length;
+  for (const x of rows) {
+    x.delta = Math.round(clamp((x.raw - mean) * 0.7, -6, 6));
+    x.next = clamp(x.p + x.delta, 1, 99);
+    x.nextTier = x.tier;
+  }
+  // tier swaps at each line, counts fixed
+  for (let i = 0; i < TIER_ORDER.length - 1; i++) {
+    const hi = TIER_ORDER[i], lo = TIER_ORDER[i + 1];
+    const down = rows.filter((x) => x.nextTier === hi && x.delta < 0).sort((a, b) => a.next - b.next);
+    const up = rows.filter((x) => x.nextTier === lo && x.delta > 0).sort((a, b) => b.next - a.next);
+    for (let k = 0; k < (hi === 'BB' ? 1 : 2) && k < down.length && k < up.length; k++) {
+      if (up[k].next <= down[k].next) break;
+      up[k].nextTier = hi; down[k].nextTier = lo;
+    }
+  }
+  const rankBy = (key) => { const o = rows.slice().sort((a, b) => b[key] - a[key] || a.name.localeCompare(b.name)); const m = {}; o.forEach((x, i) => { m[x.sid] = i + 1; }); return m; };
+  const r0 = rankBy('p'), r1 = rankBy('next');
+  for (const x of rows) { x.rank = r0[x.sid]; x.nextRank = r1[x.sid]; }
+  const report = { rows, mine: rows.find((x) => x.sid === st.schoolId) };
+  ctx._prestige = { year: st.year, n: Object.keys(st.commits).length + (st.nba?.length || 0) + (st.mm?.champ ? 1 : 0), r: report };
+  return report;
+}
+function applyPrestige(ctx) {
+  const st = ctx.state;
+  const h = st.history.at(-1);
+  if (h && h.year === st.year && h.prestige) return; // already applied this offseason
+  const { rows, mine } = prestigeReport(ctx);
+  st.prestige ||= {}; st.tiers ||= {};
+  for (const x of rows) {
+    const s = ctx.world.teams[x.sid].school, base = baseSchool(x.sid);
+    s.prestige = x.next; s.tier = x.nextTier;
+    if (base && x.next !== base.prestige) st.prestige[x.sid] = x.next; else delete st.prestige[x.sid];
+    if (base && x.nextTier !== base.tier) st.tiers[x.sid] = x.nextTier; else delete st.tiers[x.sid];
+  }
+  if (h && h.year === st.year && mine) {
+    h.prestige = [mine.p, mine.next, mine.rank, mine.nextRank, mine.tier, mine.nextTier];
+    h.tierMoves = rows.filter((x) => x.nextTier !== x.tier).map((x) => [x.name, x.tier, x.nextTier]);
+  }
+  if (mine) log(ctx, `Prestige: ${ctx.school.name} ${mine.delta >= 0 ? 'up' : 'down'} ${Math.abs(mine.delta)} to ${mine.next} (#${mine.nextRank} nationally)${mine.nextTier !== mine.tier ? `. New tier: ${TIER_NAMES[mine.nextTier]}!` : ''}.`, 'event');
+  ctx._prestige = null;
+}
+export const TIER_NAMES = { BB: 'Blue blood', HM: 'High major', MM: 'Mid major', LM: 'Low major' };
+
+// ---------- program records (History) ----------
+// Everything a player did in your uniform: seasons from state.careers (rows marked mine) plus the season in progress,
+// and the awards your players won. Legacy = career production / 12 + award points.
+const LEGACY_AWARDS = [
+  [(a) => a.award === 'National Player of the Year' && a.place === 1, 40],
+  [(a) => a.award === 'National Player of the Year', 12],
+  [(a) => (a.award === 'Defensive Player of the Year' || a.award === 'Freshman of the Year') && a.place === 1, 15],
+  [(a) => a.award.startsWith('All-America First'), 25],
+  [(a) => a.award.startsWith('All-America Second'), 18],
+  [(a) => a.award.startsWith('All-America Third'), 12],
+  [(a) => a.group === 'position', 10],
+  [(a) => a.group === 'conf', 8],
+  [(a) => a.award === 'Most Outstanding Player', 15],
+  [(a) => a.award === 'All-Tournament Team', 6],
+  [(a) => a.award === 'Tournament scoring leader', 4],
+];
+export function programRecords(ctx) {
+  const st = ctx.state, me = st.schoolId;
+  noteAlumni(ctx);
+  const names = {};
+  for (const [pid, v] of Object.entries(st.alumni || {})) { const [n, pos] = v.split('|'); names[pid] = { name: n, pos }; }
+  const players = {};
+  const get = (pid) => (players[pid] ||= { pid, name: names[pid]?.name || 'Former player', pos: names[pid]?.pos || '', seasons: [], awards: [], tot: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] });
+  const ids = new Set([...Object.keys(st.careers || {}), ...ctx.world.teams[me].roster.map((p) => p.id)]);
+  for (const pid of ids) for (const r of careerFor(ctx, pid)) {
+    if (r[0] === CAREER_HS || r[14] !== 1) continue;
+    const pl = get(pid);
+    pl.seasons.push(r);
+    for (let i = 1; i <= 13; i++) pl.tot[i] += r[i];
+  }
+  for (const h of st.history || []) for (const a of [...(h.awards || []), ...(h.mmAw || [])]) {
+    if (a.sid !== me || !a.pid) continue;
+    const m = LEGACY_AWARDS.find(([hit]) => hit(a));
+    if (!m) continue;
+    const pl = get(a.pid);
+    if (pl.name === 'Former player') pl.name = a.name;
+    if (!pl.pos) pl.pos = a.pos;
+    pl.awards.push({ year: h.year, award: a.place > 1 ? `${a.award} (${a.place === 2 ? '2nd' : '3rd'})` : a.award, pts: m[1] });
+  }
+  const list = Object.values(players);
+  for (const pl of list) {
+    const t = pl.tot;
+    pl.GP = t[1];
+    pl.prod = (t[3] + 1.2 * t[4] + 1.5 * t[5] + 2 * t[6] + 2 * t[7]) / 12;
+    pl.awardPts = pl.awards.reduce((a, x) => a + x.pts, 0);
+    pl.legacy = Math.round(pl.prod + pl.awardPts);
+    const ys = pl.seasons.map((r) => r[0]);
+    pl.years = ys.length ? [Math.min(...ys), Math.max(...ys)] : null;
+  }
+  const leaders = (i, n = 3) => list.filter((p) => p.tot[i] > 0).sort((a, b) => b.tot[i] - a.tot[i]).slice(0, n).map((p) => ({ pid: p.pid, name: p.name, pos: p.pos, v: p.tot[i] }));
+  const seasons = list.flatMap((p) => p.seasons.map((r) => ({ pid: p.pid, name: p.name, pos: p.pos, r })));
+  const best = (f, minGP = 10) => seasons.filter((x) => x.r[1] >= minGP).map((x) => ({ ...x, v: f(x.r) })).sort((a, b) => b.v - a.v)[0] || null;
+  return {
+    greats: list.filter((p) => p.GP || p.awards.length).sort((a, b) => b.legacy - a.legacy).slice(0, 10),
+    career: { PTS: leaders(3), REB: leaders(4), AST: leaders(5), STL: leaders(6), BLK: leaders(7), '3PM': leaders(10) },
+    single: {
+      PPG: best((r) => r[3] / r[1]), RPG: best((r) => r[4] / r[1]), APG: best((r) => r[5] / r[1]), SPG: best((r) => r[6] / r[1]), BPG: best((r) => r[7] / r[1]),
+      'Points in a season': best((r) => r[3], 1), '3PM in a season': best((r) => r[10], 1),
+    },
+  };
+}
+
 // His rows plus the season in progress, for the player card.
 export function careerFor(ctx, pid) {
   const rows = (ctx.state.careers?.[pid] || []).slice();
@@ -1024,6 +1172,7 @@ export function advanceSeason(ctx, { cuts = [] } = {}) {
   if (st.mm && !st.mm.champ) simMMAll(ctx);
   if (st.mm && !st.nba) { for (const d of Object.values(st.draft || {})) if (d.status === 'declared') d.status = 'gone'; startDraft(ctx); }
   recordCareers(ctx);
+  applyPrestige(ctx);
   const rng = makeRng(`${st.seed}:offseason:${st.year}`);
   let userLog = null;
   const LEAVES = new Set(['gone', 'drafted', 'declared']);
