@@ -635,7 +635,7 @@ function sheetRecruit() {
       <button class="btn ${ui.pickExact ? 'on' : ''}" data-act="exactPick" ${dis}>Exact skill · ${c.exact} AP</button>
       <button class="btn" data-act="phone" ${dis || (ctx.state.phonedToday.includes(r.id) ? 'disabled' : '')}>Phone call · ${c.phone} AP</button>
       <button class="btn" data-act="visit" ${dis || (c.inState && !(ctx.state.visitedToday || []).includes(r.id) ? '' : 'disabled')}>${(ctx.state.visitedToday || []).includes(r.id) ? 'Visited today' : `Home visit · ${c.visit} AP`}</button>
-      ${offered ? `<button class="btn span2" data-act="pull" ${dis}>Pull offer (he will never come)</button>` : burned ? `<button class="btn span2" disabled>Offer pulled · he's done with you</button>` : `<button class="btn primary span2" data-act="offer" ${dis}>Offer · ${c.offer} AP</button>`}
+      ${v.committedMine ? (ctx.state.over ? '' : `<button class="btn span2" data-act="release">Release him · frees his scholarship</button>`) : offered ? `<button class="btn span2" data-act="pull" ${dis}>Pull offer (he will never come)</button>` : burned ? `<button class="btn span2" disabled>Offer pulled · he's done with you</button>` : `<button class="btn primary span2" data-act="offer" ${dis}>Offer · ${c.offer} AP</button>`}
       ${hsg && c.inState ? `<button class="btn span2" data-hswatch="${hsg.id}" ${dis || (ctx.state.gameToday ? 'disabled' : '')}>${ctx.state.gameToday === hsg.id ? 'Attended his game' : `Watch his game in person · ${hsg.cost} AP`}</button>` : ''}
       ${c.inState ? '' : `<button class="btn span2" data-act="travelR">Send scout to ${esc(stName(r.state))} · ${c.travelTo(r.state)} AP</button>`}
     </div>
@@ -811,6 +811,10 @@ function bindSheet(body) {
     if (a === 'phone') return act(C.phoneCall(ctx, rid));
     if (a === 'visit') return act(C.homeVisit(ctx, rid));
     if (a === 'offer') return act(C.makeOffer(ctx, rid));
+    if (a === 'release') {
+      if (!b.dataset.armed) { b.dataset.armed = '1'; b.classList.add('danger'); b.textContent = 'Tap again: release him for good'; return; }
+      return act(C.releaseCommit(ctx, rid));
+    }
     if (a === 'pull') {
       if (!b.dataset.armed) { b.dataset.armed = '1'; b.classList.add('danger'); b.textContent = 'Tap again: he will never come'; return; }
       return act(C.pullOffer(ctx, rid));
@@ -1729,7 +1733,7 @@ function sheetOffseason() {
 }
 
 // test hook: lets automated playtests drive long seasons quickly
-window.cbbmDebug = { get ctx() { return ctx; }, get live() { return live; }, openState: (c) => { ui.sel = c; ui.selRecruit = null; openSheet('state', 'half'); render(); }, endDay: (c) => { C.endDay(ctx, c); save(); render(); } };
+window.cbbmDebug = { get ctx() { return ctx; }, get live() { return live; }, openRecruit: (id) => selectRecruit(id), openState: (c) => { ui.sel = c; ui.selRecruit = null; openSheet('state', 'half'); render(); }, endDay: (c) => { C.endDay(ctx, c); save(); render(); } };
 startScreen();
 
 { const v = document.getElementById('verTag'); if (v) v.textContent = VERSION; }

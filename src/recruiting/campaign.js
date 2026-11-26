@@ -442,6 +442,20 @@ export function makeOffer(ctx, rid) {
   return okMsg(ctx, `Offered a scholarship to ${fullName(ctx.byId[rid])} (1 AP).`, 'offer');
 }
 
+// Release a kid who committed to you, to free his scholarship before signing day. He's burned for good
+// (he won't sign with you again) and goes back on the board for everyone else.
+export function releaseCommit(ctx, rid) {
+  const st = ctx.state, me = st.schoolId;
+  if (st.over) return fail('Signing day has passed. Classes are final.');
+  if (st.commits[rid] !== me) return fail('He is not committed to you.');
+  const r = ctx.byId[rid];
+  delete st.commits[rid];
+  st.offers[rid] = (st.offers[rid] || []).filter((s) => s !== me);
+  (st.burned ||= []).includes(rid) || st.burned.push(rid);
+  if (st.interest[rid]) st.interest[rid][me] = 0;
+  ctx.slots = ctx.slotsFor(me);
+  return okMsg(ctx, `Released ${fullName(r)} from his commitment. His scholarship is open again, and he will never play for ${ctx.school.name}.`, 'offer');
+}
 export function pullOffer(ctx, rid) {
   const offers = ctx.state.offers[rid] || [];
   if (!offers.includes(ctx.state.schoolId)) return fail('No offer to pull.');
