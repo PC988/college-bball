@@ -946,6 +946,7 @@ function bindPage(root) {
   on('[data-advance]', () => openPreOff());
   on('[data-tdrill]', (b) => { ui.teamDrill = b.dataset.tdrill; render(); });
   on('[data-teamtrain]', () => act(C.trainTeam(ctx, ui.teamDrill || 'shooting')));
+  on('[data-trainrepeat]', () => act(C.repeatTraining(ctx)));
   on('[data-tplayer]', (b) => { ui.player = b.dataset.tplayer; openSheet('train', 'full'); });
   on('[data-goto]', (b) => setTab(b.dataset.goto));
   on('[data-player]', (b) => openPlayerCard(b.dataset.player));
@@ -1012,8 +1013,13 @@ function renderTrain() {
   const drill = ui.teamDrill || 'shooting';
   const roster = rotationOrder();
   const drillBtns = (attr, cur) => `<div class="drills">${Object.entries(DRILLS).map(([id, d]) => `<button ${attr}="${id}" class="${id === cur ? 'on' : ''}">${d.label}</button>`).join('')}</div>`;
+  const rp = C.repeatPlan(ctx);
+  const rpWhat = [rp.team ? `Team ${DRILLS[rp.team].label}` : '', rp.solo ? `${rp.solo} solo session${rp.solo > 1 ? 's' : ''}` : ''].filter(Boolean).join(' + ');
+  const repeat = (st.trainLast || []).length && !st.over ? `<div class="panel"><div class="kick">Last training day</div>
+      ${rp.items.length ? `<div class="note">${esc(rpWhat)}</div><button class="btn primary wide" data-trainrepeat ${st.ap < rp.cost ? 'disabled' : ''}>${st.ap < rp.cost ? `Need ${rp.cost} AP to repeat (you have ${st.ap})` : `Repeat it · ${rp.cost} AP`}</button>` : '<div class="note">Already done today.</div>'}</div>` : '';
   root.innerHTML = `<h2>Training</h2>
     <div class="note">Uses the same AP as recruiting. 100 XP = +1 to a rating, up to the player's ceiling. Work ethic and youth earn XP faster.</div>
+    ${repeat}
     ${st.over ? '<div class="panel"><div class="note">The season is over. Training opens again next season.</div></div>' : `
     <div class="panel"><div class="kick">Team practice · ${TRAIN_COST.team} AP · once a day</div>
       ${drillBtns('data-tdrill', drill)}

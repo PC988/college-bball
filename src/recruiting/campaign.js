@@ -168,7 +168,7 @@ export function hydrate(state) {
   state.userGames ||= {};
   state.history ||= [];
   world.teams[state.schoolId].tactics = state.tactics;
-  state.train ||= {}; state.trainedToday ||= [];
+  state.train ||= {}; state.trainedToday ||= []; state.trainLog ||= []; state.trainLast ||= [];
   applyTraining(world.teams[state.schoolId].roster, state.train);
   const season = newSeasonState(world, state.seed);
   const school = world.teams[state.schoolId].school;
@@ -710,6 +710,9 @@ export function endDay(ctx, choice = 'stay') {
   st.visitedToday = [];
   st.trainedToday = [];
   st.teamTrainedToday = false;
+  // remember today's sessions for "Repeat yesterday" (a day with no training keeps the older plan)
+  if (st.trainLog?.length) st.trainLast = st.trainLog;
+  st.trainLog = [];
   if (st.day === STAR_RELEASE_DAY + 1) log(ctx, 'Star ratings and national rankings are out. Check the Board.', 'event');
   const ev = eventToday(ctx);
   if (ev) log(ctx, `Today: ${ev.name} in ${STATES[ev.state].name}, featuring the top ${ev.top} recruits.`, 'event');
@@ -763,8 +766,27 @@ export function trainSolo(ctx, pid, drill) {
   if (st.trainedToday.includes(pid)) return fail(`${fullName(p)} already had a session today.`);
   const err = spend(ctx, TRAIN_COST.solo); if (err) return fail(err);
   st.trainedToday.push(pid);
+  (st.trainLog ||= []).push([pid, drill]);
   const ups = trainPlayer(p, trainRec(st, pid), drill, 'solo');
   return okMsg(ctx, `${fullName(p)}: ${DRILLS[drill].label} session (${TRAIN_COST.solo} AP).${ups.length ? ` Level up: ${ups.map((k) => '+1 ' + k).join(', ')}!` : ''}`, 'train');
+}
+// Repeat the last day you trained: the same team drill and the same solo sessions, for players still on the roster
+// and not yet trained today. All or nothing: it only runs if you have the AP for every session.
+export function repeatPlan(ctx) {
+  const st = ctx.state, roster = ctx.world.teams[st.schoolId].roster;
+  const items = (st.trainLast || []).filter(([who]) => (who === 'team' ? !st.teamTrainedToday : roster.some((p) => p.id === who) && !st.trainedToday.includes(who)));
+  const cost = items.reduce((a, [who]) => a + (who === 'team' ? TRAIN_COST.team : TRAIN_COST.solo), 0);
+  return { items, cost, team: items.find(([w]) => w === 'team')?.[1], solo: items.filter(([w]) => w !== 'team').length };
+}
+export function repeatTraining(ctx) {
+  const st = ctx.state;
+  if (st.over) return fail('The season is over.');
+  const plan = repeatPlan(ctx);
+  if (!plan.items.length) return fail('Nothing to repeat.');
+  if (st.ap < plan.cost) return fail(`You need ${plan.cost} AP to repeat it (you have ${st.ap}).`);
+  const msgs = [];
+  for (const [who, drill] of plan.items) { const r = who === 'team' ? trainTeam(ctx, drill) : trainSolo(ctx, who, drill); if (r.ok === false) return r; msgs.push(r.msg); }
+  return { ok: true, msg: `Repeated yesterday's training (${plan.cost} AP).` };
 }
 export function trainTeam(ctx, drill) {
   const st = ctx.state;
@@ -773,6 +795,7 @@ export function trainTeam(ctx, drill) {
   if (st.teamTrainedToday) return fail('The team already practiced today.');
   const err = spend(ctx, TRAIN_COST.team); if (err) return fail(err);
   st.teamTrainedToday = true;
+  (st.trainLog ||= []).push(['team', drill]);
   let ups = 0;
   for (const p of ctx.world.teams[st.schoolId].roster) ups += trainPlayer(p, trainRec(st, p.id), drill, 'team').length;
   return okMsg(ctx, `Team practice: ${DRILLS[drill].label} (${TRAIN_COST.team} AP).${ups ? ` ${ups} level-up${ups > 1 ? 's' : ''}!` : ''}`, 'train');
