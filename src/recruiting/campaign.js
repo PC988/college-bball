@@ -469,6 +469,8 @@ function aiWants(ctx, sid, r, caps = classCaps(ctx, sid)) {
 // Can this AI program land him? A-ceiling kids only while the program is under its A quota (HM: one).
 function canLand(ctx, sid, r) {
   if (sid === ctx.state.schoolId || LETTER(r) !== 'A') return true;
+  // 5-stars are never quota'd out: a program that already landed a lesser A still chases a top-25 kid
+  if (r.rank <= 25) return true;
   const s = ctx.schools[sid];
   const haveA = commitsFor(ctx, sid).filter((id) => LETTER(ctx.byId[id]) === 'A').length;
   if (haveA < (s.tier === 'HM' ? 1 : classCaps(ctx, sid).A)) return true;
@@ -622,7 +624,8 @@ function eliteSuitors(ctx, commitCount) {
 export function decisionDay(ctx, r) {
   if (r._dd) return r._dd;
   const u = makeRng(`${ctx.state.seed}:dday:${r.id}`).next();
-  return (r._dd = r.rank <= 100 ? 12 + Math.floor(u * 17) : 6 + Math.floor(u * 22));
+  // 5-stars (and the McDonald's All Americans among them) decide first, before programs fill their classes
+  return (r._dd = r.rank <= 25 ? 12 + Math.floor(u * 9) : r.rank <= 100 ? 10 + Math.floor(u * 13) : 6 + Math.floor(u * 22));
 }
 function resolveCommitments(ctx, signingDay) {
   const day = ctx.state.day;
@@ -636,15 +639,25 @@ function resolveCommitments(ctx, signingDay) {
     // offered schools get a little passive interest each day
     for (const sid of open) addInterest(ctx, rid, sid, 0.4 * fit(r, ctx.schools[sid]));
     const ranked = open.map((sid) => [sid, m[sid] || 0]).sort((a, b) => b[1] - a[1]);
-    const [lead, lv] = ranked[0];
-    const sv = ranked[1]?.[1] || 0;
+    let [lead, lv] = ranked[0];
+    let sv = ranked[1]?.[1] || 0;
     const rng = makeRng(`${ctx.state.seed}:commit:${rid}:${day}`);
+    // Interest tops out at 100, so an elite kid can have several programs maxed out and no clear leader.
+    // Once his day comes he breaks the tie himself: best fit first, prestige next, a little luck.
+    // From his decision day on, programs within 5 points of the top count as tied too: close races still end.
+    const tied = ranked.filter(([, v]) => v >= Math.min(100, lv - 5));
+    if (tied.length > 1 && day >= decisionDay(ctx, r) && (lv >= 100 || day > decisionDay(ctx, r) + 2)) {
+      const pick = makeRng(`${ctx.state.seed}:tie:${rid}:${day}`);
+      lead = pick.weighted(tied.map(([sid]) => sid), tied.map(([sid]) => fit(r, ctx.schools[sid]) ** 3 * (0.5 + ctx.schools[sid].prestige / 100)));
+      sv = 0;
+    }
     // Each recruit has a hidden decision day spread through the season (top recruits tend to wait longer).
     // From then on he commits to whoever clearly leads. A runaway leader can get him earlier.
     const dd = decisionDay(ctx, r);
     const ready = (signingDay && lv > 0)
       || (day >= (r.rank <= 50 ? Math.max(10, dd - 4) : 5) && lv >= Math.max(70, commitBar(r) + 5) && lv - sv >= 15 && rng.chance(0.5))
-      || (day >= dd && lv >= commitBar(r) && lv - sv >= Math.max(1, 10 - (day - dd) * 2) && rng.chance(0.6));
+      // past his day, his standards drop (5 a day) toward whoever is still offering: no elite kid sits unsigned for weeks
+      || (day >= dd && lv >= Math.max(40, commitBar(r) - 5 * (day - dd)) && lv - sv >= Math.max(1, 10 - (day - dd) * 2) && rng.chance(0.6));
     if (!ready) continue;
     ctx.state.commits[rid] = lead;
     if (ctx.slotsFor(lead) - commitsFor(ctx, lead).length <= 0) {
