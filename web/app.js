@@ -1,5 +1,6 @@
 // Scouting Map, phone-first UI. All game rules live in src/recruiting/campaign.js.
 import * as C from '../src/recruiting/campaign.js';
+import { VERSION } from '../src/version.js';
 import { SCHOOL_DATA } from '../src/world.js';
 import { ovr, gradeOf, potGrade, fullName, fmtHeight, SKILLS, PHYS } from '../src/player.js';
 import { faceSvg } from '../src/face.js';
@@ -725,7 +726,8 @@ function sheetMenu() {
   return `<h2>Menu</h2><div class="note">Scout: ${esc(ctx.state.scout.name)} · accuracy ${ctx.state.scout.accuracy}, efficiency ${ctx.state.scout.efficiency}, charisma ${ctx.state.scout.charisma}, speed ${ctx.state.scout.speed}</div>
     <div class="note">Your game saves automatically on this device. Updates to the game never delete it. Export a copy now and then as a backup, or to move your career to another device.</div>
     <div class="two"><button class="btn" data-export>Export save</button><button class="btn" data-import>Import save</button></div>
-    <button class="btn wide" data-new2>Start a new game</button>`;
+    <button class="btn wide" data-new2>Start a new game</button>
+    <div class="note" style="text-align:center">College Hoops Manager ${VERSION}</div>`;
 }
 
 function bindSheet(body) {
@@ -1649,3 +1651,5 @@ function sheetOffseason() {
 // test hook: lets automated playtests drive long seasons quickly
 window.cbbmDebug = { get ctx() { return ctx; }, get live() { return live; }, openState: (c) => { ui.sel = c; ui.selRecruit = null; openSheet('state', 'half'); render(); }, endDay: (c) => { C.endDay(ctx, c); save(); render(); } };
 startScreen();
+
+{ const v = document.getElementById('verTag'); if (v) v.textContent = VERSION; }

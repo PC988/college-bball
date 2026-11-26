@@ -499,3 +499,4 @@ body.sheet-over-live .scrim { z-index: 31; }
 .stand.sg th.n, .stand.sg td.n { width: 48px; }
 .stand.sg td { overflow-wrap: anywhere; }
 .stand.sg td div.muted { white-space: normal; }
+.ver { font-size: 14px; font-weight: 800; color: var(--muted); vertical-align: middle; margin-left: 4px; }
