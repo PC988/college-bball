@@ -25,7 +25,7 @@ const head = `<link rel="manifest" href="manifest.webmanifest">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Hoops Manager">
-<script>if ('serviceWorker' in navigator && location.protocol.startsWith('http')) addEventListener('load', () => navigator.serviceWorker.register('sw.js'));</script>
+<script>if ('serviceWorker' in navigator && location.protocol.startsWith('http')) addEventListener('load', () => navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }));</script>
 </head>`;
 const pwa = html.replace('</head>', head);
 writeFileSync(root + 'index.html', pwa);
@@ -40,6 +40,13 @@ self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  // The page itself: network first (skipping the HTTP cache) so a new version shows on the very next open; cached copy when offline.
+  const page = e.request.mode === 'navigate' || new URL(e.request.url).pathname.endsWith('/index.html');
+  if (page) {
+    e.respondWith(fetch(e.request, { cache: 'no-cache' }).then((res) => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put('index.html', copy)); } return res; })
+      .catch(() => caches.match('index.html')));
+    return;
+  }
   e.respondWith(caches.match(e.request, { ignoreSearch: true }).then((hit) => hit || fetch(e.request).catch(() => caches.match('index.html'))));
 });
 `);
