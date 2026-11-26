@@ -552,6 +552,42 @@ function offerWave(ctx, sid, outCount) {
   }
 }
 
+// Signing day leftovers: a top-100 kid nobody could take goes to the best-fitting program that still has a spot.
+function placeLeftovers(ctx) {
+  const st = ctx.state, user = st.schoolId;
+  for (const r of ctx.recruits.slice(0, 100)) {
+    if (st.commits[r.id]) continue;
+    const room = Object.values(ctx.schools).filter((s) => s.id !== user && ctx.slotsFor(s.id) - commitsFor(ctx, s.id).length > 0);
+    if (!room.length) return;
+    const best = room.sort((a, b) => b.prestige * fit(r, b) - a.prestige * fit(r, a))[0];
+    (st.offers[r.id] ||= []).includes(best.id) || st.offers[r.id].push(best.id);
+    st.commits[r.id] = best.id;
+    if (r.rank <= 50 && starsKnown(ctx)) log(ctx, `#${r.rank} ${fullName(r)} committed to ${best.name}.`, 'rival');
+  }
+}
+
+// Late in the cycle, a top-100 kid with fewer than three live offers draws offers from any program with a spot,
+// best first, regardless of class quotas, so he signs somewhere real instead of waiting for leftovers.
+function lateSuitors(ctx) {
+  if (ctx.state.day < 20) return;
+  const user = ctx.state.schoolId;
+  const pool = Object.values(ctx.schools).filter((s) => s.id !== user).sort((a, b) => b.prestige - a.prestige);
+  const room = (sid) => ctx.slotsFor(sid) - commitsFor(ctx, sid).length > 0;
+  for (const r of ctx.recruits.slice(0, 100)) {
+    if (ctx.state.commits[r.id]) continue;
+    const offers = (ctx.state.offers[r.id] ||= []);
+    let add = Math.min(2, 3 - offers.filter((sid) => sid !== user && room(sid)).length);
+    for (const s of pool) {
+      if (add <= 0) break;
+      if (offers.includes(s.id) || !room(s.id)) continue;
+      offers.push(s.id);
+      addInterest(ctx, r.id, s.id, 25 * fit(r, s));
+      if (starsKnown(ctx) && (r.rank <= 25 || offers.includes(user))) log(ctx, `${s.name} offered ${tag(ctx, r)}${fullName(r)} (${r.pos}, ${r.state}).`, 'rival');
+      add--;
+    }
+  }
+}
+
 // The elite never run short of suitors: a 5-star keeps ~10 live offers from programs that can actually take him,
 // the rest of the top 50 keep ~6. Programs that fill up or hit their quota get replaced by the next in line.
 function topUpElite(ctx, commitCount) {
@@ -584,6 +620,7 @@ function runAI(ctx) {
   for (const [rid, l] of Object.entries(ctx.state.offers)) if (!ctx.state.commits[rid]) for (const sid of l) outCount[sid] = (outCount[sid] || 0) + 1;
   for (const sid of Object.keys(ctx.state.aiTargets)) if (ctx.slotsFor(sid) - (commitCount[sid] || 0) > 0) offerWave(ctx, sid, outCount);
   topUpElite(ctx, commitCount);
+  lateSuitors(ctx);
   for (const [sid, targets] of Object.entries(ctx.state.aiTargets)) {
     const s = ctx.schools[sid];
     const slots = ctx.slotsFor(sid);
@@ -635,14 +672,36 @@ export function decisionDay(ctx, r) {
   // 5-stars (and the McDonald's All Americans among them) decide first, before programs fill their classes
   return (r._dd = r.rank <= 25 ? 12 + Math.floor(u * 9) : r.rank <= 100 ? 10 + Math.floor(u * 13) : 6 + Math.floor(u * 22));
 }
+// Spots an AI program is holding for top-50 recruits it is still in on (top two by interest among his offers).
+// A program won't fill those spots with lesser recruits, so elite kids still have somewhere to go late in the cycle.
+// Two levels: spots held for 5-stars (top 25) block anyone ranked below 25; spots held for the top 50 block anyone below 50.
+function heldSpots(ctx) {
+  const h25 = {}, h50 = {}, user = ctx.state.schoolId;
+  for (const r of ctx.recruits.slice(0, 50)) {
+    if (ctx.state.commits[r.id]) continue;
+    const m = ctx.state.interest[r.id] || {};
+    const ai = (ctx.state.offers[r.id] || []).filter((sid) => sid !== user && ctx.slotsFor(sid) - commitsFor(ctx, sid).length > 0).sort((a, b) => (m[b] || 0) - (m[a] || 0)).slice(0, 3);
+    for (const sid of ai) { h50[sid] = (h50[sid] || 0) + 1; if (r.rank <= 25) h25[sid] = (h25[sid] || 0) + 1; }
+  }
+  return { h25, h50 };
+}
+// Signing day: you can't sign a kid who barely knows you. Half his commit bar, capped at 40 interest.
+export const userSignFloor = (r) => Math.min(40, commitBar(r) * 0.5);
 function resolveCommitments(ctx, signingDay) {
-  const day = ctx.state.day;
+  const day = ctx.state.day, user = ctx.state.schoolId;
+  const held = signingDay ? { h25: {}, h50: {} } : heldSpots(ctx);
   for (const [rid, offers] of Object.entries(ctx.state.offers)) {
     if (ctx.state.commits[rid] || !offers.length) continue;
     const r = ctx.byId[rid];
     const m = ctx.state.interest[rid] || {};
     // signing day: any program with a spot can take him, quotas or not (no elite kid goes unsigned)
-    const open = offers.filter((sid) => ctx.slotsFor(sid) - commitsFor(ctx, sid).length > 0 && (signingDay || canLand(ctx, sid, r)));
+    const open = offers.filter((sid) => {
+      const room = ctx.slotsFor(sid) - commitsFor(ctx, sid).length;
+      if (room <= 0) return false;
+      if (sid === user) return !signingDay || (m[sid] || 0) >= userSignFloor(r);
+      if (r.rank > 25 && room <= (r.rank > 50 ? held.h50[sid] || 0 : held.h25[sid] || 0)) return false;
+      return signingDay || canLand(ctx, sid, r);
+    });
     if (!open.length) continue;
     // offered schools get a little passive interest each day
     for (const sid of open) addInterest(ctx, rid, sid, 0.4 * fit(r, ctx.schools[sid]));
@@ -704,6 +763,7 @@ export function endDay(ctx, choice = 'stay') {
   runAI(ctx);
   const signing = st.day >= DAYS;
   resolveCommitments(ctx, signing);
+  if (signing) placeLeftovers(ctx);
 
   if (signing) {
     st.over = true;
