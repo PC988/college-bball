@@ -18,8 +18,9 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const stars = (n) => `<span class="stars">${'★'.repeat(n)}<span class="off">${'★'.repeat(5 - n)}</span></span>`;
 const SK = () => C.starsKnown(ctx);
-// McDonald's All Americans get a burger: recruits ranked top 20 (once rankings are out), and the college players they become
-const burger = (x) => (x.mcd || (x.rank && x.rank <= 20 && SK()) ? ' <span class="mcd" title="McDonald\'s All American">🍔</span>' : '');
+// McDonald's All Americans get a burger while they're in high school (top-20 recruits, once rankings are out).
+// College players keep the p.mcd flag in the save but don't show it (Preston: the burger is a high school honor).
+const burger = (x) => (x.rank && x.rank <= 20 && SK() ? ' <span class="mcd" title="McDonald\'s All American">🍔</span>' : '');
 const nmB = (x) => esc(fullName(x)) + burger(x);
 // before stars come out: no stars, no rank, and lists in a neutral (id) order
 const shownStars = (r) => (SK() ? r.stars : 0);
@@ -495,7 +496,7 @@ function renderSheet() {
   const html = {
     state: sheetState, recruit: sheetRecruit, board: sheetBoard, needs: sheetNeeds, news: sheetNews,
     endday: sheetEndDay, daysum: sheetDaySummary, summary: sheetSummary, menu: sheetMenu,
-    unplayed: sheetUnplayed, box: sheetBox, player: sheetPlayer, offseason: sheetOffseason, preoff: sheetPreOff, train: sheetTrain, draft: sheetDraft, ceremony: sheetCeremony, combine: sheetCombine,
+    unplayed: sheetUnplayed, box: sheetBox, player: sheetPlayer, offseason: sheetOffseason, preoff: sheetPreOff, train: sheetTrain, draft: sheetDraft, ceremony: sheetCeremony, signings: sheetSignings, combine: sheetCombine,
   }[v]();
   body.innerHTML = html;
   $('sheetBack').classList.toggle('hidden', !sheetStack.length);
@@ -701,7 +702,23 @@ function sheetSummary() {
   return `<h2>Signing day</h2><div class="note">Season finished ${rec.W}-${rec.L}. You signed ${signed.length} of ${ctx.slots}.</div>
     <div class="list" style="margin-top:12px">${signed.map((r) => cardFor(r)).join('')}</div>
     ${walk ? `<div class="note" style="margin-top:10px">${walk} empty spot${walk > 1 ? 's' : ''} will be filled by walk-ons.</div>` : ''}
-    ${ctx.state.mm ? '<button class="btn primary wide" data-ceremony>Awards ceremony</button>' : '<button class="btn primary wide" data-advance>Start the offseason</button>'}`;
+    ${ctx.state.mm ? '<button class="btn primary wide" data-signings>National signing day recap</button>' : '<button class="btn primary wide" data-advance>Start the offseason</button>'}`;
+}
+// Signing day recap: where the top recruits went, and the best incoming classes.
+function sheetSignings() {
+  const tab = ui.sgTab || 'top', me = ctx.state.schoolId;
+  C.leagueHistory(ctx); // stores the top 10s in this season's history
+  let body;
+  if (tab === 'top') {
+    body = `<div class="panel" style="padding:4px 12px"><table class="stand sg"><tr><th>#</th><th>Recruit</th><th>Signed with</th></tr>${C.topSignings(ctx, 50).map(([rank, name, pos, st, sid, rid]) => `<tr class="${sid === me ? 'me' : ''}"><td>${rank}</td><td><b>${esc(name)}</b>${rank <= 20 ? ' 🍔' : ''}<div class="muted">${stars(st)} ${pos}</div></td><td>${sid ? `<i class="sgdot" style="background:${ctx.schools[sid].color || '#6b7785'}"></i>${esc(ctx.schools[sid].name)}` : '<span class="muted">Unsigned</span>'}</td></tr>`).join('')}</table></div>`;
+  } else {
+    const all = C.classRankings(ctx), mine = all.find((c) => c.sid === me);
+    const row = (c) => `<tr class="${c.sid === me ? 'me' : ''}"><td>${c.place}</td><td><i class="sgdot" style="background:${ctx.schools[c.sid].color || '#6b7785'}"></i><b>${esc(c.name)}</b><div class="muted">${c.n} signee${c.n > 1 ? 's' : ''} · ${[5, 4, 3].filter((k) => c.stars[k]).map((k) => `${c.stars[k]}×${k}★`).join(' ') || 'no 3★+'} · best #${c.best}</div></td><td class="n"><b>${Math.round(c.score)}</b></td></tr>`;
+    body = `<div class="note">Points per signee drop off fast with rank (#1 = 100, #25 = 32, #100 = 9, #300 = 2), so quality wins, but every good signee adds.</div>
+      <div class="panel" style="padding:4px 12px"><table class="stand sg"><tr><th>#</th><th>School</th><th class="n">Pts</th></tr>${all.slice(0, 25).map(row).join('')}${mine && mine.place > 25 ? row(mine) : ''}</table></div>`;
+  }
+  return `<h2>National signing day</h2>${segHtml('sg', [['top', 'Top recruits'], ['classes', 'Best classes']], tab, 'data-sgtab')}${body}
+    ${ctx.state.mm && !ctx.state.mm.champ ? '<button class="btn primary wide" data-ceremony>Awards ceremony</button>' : '<button class="btn primary wide" data-close>Done</button>'}`;
 }
 
 function sheetMenu() {
@@ -746,6 +763,8 @@ function bindSheet(body) {
   on('[data-cbtab]', (b) => { ui.cbTab = b.dataset.v; renderSheet(); });
   on('[data-dskip]', () => { ui.draftPlaying = false; clearTimeout(draftTimer); ui.draftN = (ctx.state.nba || []).length; renderSheet(); });
   on('[data-ceremony]', () => openSheet('ceremony', 'full'));
+  on('[data-signings]', () => openSheet('signings', 'full'));
+  on('[data-sgtab]', (b) => { ui.sgTab = b.dataset.v; openSheet('signings', 'full'); });
   on('[data-endday]', () => onEndDay());
   on('[data-watchnow]', () => { ui.confirmAutoSim = false; closeSheet(); startLive(); });
   on('[data-box]', (b) => { ui.boxGi = Number(b.dataset.box); ui.boxRes = null; ui.boxSide = null; openSheet('box', 'full'); });
@@ -864,7 +883,7 @@ function renderPost(root) {
   const yr = `${st.year}-${String(st.year + 1).slice(2)}`;
   const me = mm.field.find((f) => f.sid === st.schoolId);
   let html = `<div class="panel"><div class="kick">${yr} regular season</div><div class="final ${h.W >= h.L ? 'w' : 'l'}">${h.W}-${h.L}</div>
-    <div class="note" style="text-align:center">${h.cW}-${h.cL} in conference · ${me ? `<b>${me.seed} seed</b> in March Madness` : 'missed March Madness'} · signed ${h.signed} of ${h.slots}</div><button class="btn wide" data-ceremony>🏆 Awards ceremony</button></div>`;
+    <div class="note" style="text-align:center">${h.cW}-${h.cL} in conference · ${me ? `<b>${me.seed} seed</b> in March Madness` : 'missed March Madness'} · signed ${h.signed} of ${h.slots}</div><div class="two"><button class="btn" data-signings>✍️ Signing day</button><button class="btn" data-ceremony>🏆 Awards</button></div></div>`;
   if (!mm.champ) {
     const idx = C.userMMGame(ctx);
     const g = idx != null ? mm.games[idx] : null;
@@ -943,6 +962,8 @@ function bindPage(root) {
   on('[data-combine]', () => { const r = C.nbaCombine(ctx); if (!r.ok) return toast(r.msg, 'bad'); save(); ui.cbTab = 'measure'; openSheet('combine', 'full'); render(); });
   on('[data-cbshow]', () => { ui.cbTab = ui.cbTab || 'measure'; openSheet('combine', 'full'); });
   on('[data-ceremony]', () => openSheet('ceremony', 'full'));
+  on('[data-signings]', () => openSheet('signings', 'full'));
+  on('[data-sgtab]', (b) => { ui.sgTab = b.dataset.v; openSheet('signings', 'full'); });
   on('[data-advance]', () => openPreOff());
   on('[data-tdrill]', (b) => { ui.teamDrill = b.dataset.tdrill; render(); });
   on('[data-teamtrain]', () => act(C.trainTeam(ctx, ui.teamDrill || 'shooting')));
@@ -1111,6 +1132,8 @@ function renderSeason() {
         ${x.ff ? `<div class="panel"><div class="kick">Final Four</div><table class="stand">${x.ff.slice().sort((p, q) => (q.sid === x.champSid) - (p.sid === x.champSid) || (f && q.name === f.l) - (f && p.name === f.l)).map((t) => `<tr class="${t.sid === ctx.state.schoolId ? 'me' : ''}"><td>(${t.seed}) ${esc(t.name)}</td><td class="n muted">${t.sid === x.champSid ? 'Champion' : f && t.name === f.l ? 'Runner-up' : 'Semifinal'}</td></tr>`).join('')}</table></div>` : ''}
         ${mmA.length ? `<div class="panel"><div class="kick">March Madness awards</div><table class="stand aw">${mmA.filter((a) => a.award !== 'All-Tournament Team').map((a) => arow(a)).join('')}</table>
           <div class="kick" style="margin-top:8px">All-Tournament Team</div><table class="stand aw">${mmA.filter((a) => a.award === 'All-Tournament Team').map((a) => arow(a, '')).join('')}</table></div>` : x.champ ? '<div class="note">March Madness awards started being recorded after this tournament.</div>' : ''}
+        ${x.classTop ? `<div class="panel"><div class="kick">Top recruiting classes</div><table class="stand">${x.classTop.map(([sid, n, sc, cnt, st], i) => `<tr class="${sid === ctx.state.schoolId ? 'me' : ''}"><td>${i + 1}</td><td>${esc(n)} <span class="muted">${cnt} signed${st !== '0/0/0' ? ` · ${st} (5★/4★/3★)` : ''}</span></td><td class="n">${sc.toFixed(1)}</td></tr>`).join('')}</table>
+          <div class="kick" style="margin-top:8px">Top 10 recruits</div><table class="stand">${x.recTop.map(([rk, n, pos, st, sch]) => `<tr><td>${rk}</td><td>${esc(n)} <span class="muted">${st}★ ${pos}</span></td><td class="n muted">${esc(sch || 'Unsigned')}</td></tr>`).join('')}</table></div>` : ''}
         ${aw.length ? `<div class="panel"><div class="kick">National awards</div><table class="stand aw">${aw.filter((a) => a.group === 'major').map((a) => arow(a)).join('')}</table>
           <div class="kick" style="margin-top:8px">All-America First Team</div><table class="stand aw">${aw.filter((a) => a.award.startsWith('All-America First')).map((a) => arow(a, '')).join('')}</table>
           <button class="btn ghost" data-hiaw="${x.year}" style="margin-top:8px">Every award from ${sy(x.year)} ›</button></div>` : ''}

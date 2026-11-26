@@ -4,6 +4,7 @@ import { makeRng } from './rng.js';
 import { Game } from './engine/game.js';
 import { standings, powerRatings, teamOf, compactResult, expandCompact } from './season.js';
 import { ovr } from './player.js';
+import { statRows, computeAwards } from './awards.js';
 
 export const REGIONS = ['East', 'West', 'South', 'Midwest'];
 export const ROUND_NAMES = ['First Four', 'Round of 64', 'Round of 32', 'Sweet 16', 'Elite Eight', 'Final Four', 'National Championship'];
@@ -187,11 +188,42 @@ export const NBA_TEAMS = ['Atlanta Hawks', 'Boston Celtics', 'Brooklyn Nets', 'C
 // A freshman 85 with a 95 ceiling goes ahead of a senior 90 who is maxed out at 91; a freshman whose ceiling
 // is well below the senior's does not.
 const YOUTH = { FR: 2.5, SO: 1.7, JR: 0.8, SR: 0 };
-export const draftValue = (p) => { const now = ovr(p), cap = ovr(p, 'cap'); return cap + (YOUTH[p.cls] || 0) + 0.25 * (now - cap); };
+// Plus (Preston, 2026-11-26) what he did this season: production and awards move his stock, so a big year
+// can push a modest-ceiling All-American up the board and a quiet one drops a high-ceiling kid. See draftPerf.
+export const draftValue = (p, perf) => { const now = ovr(p), cap = ovr(p, 'cap'); return cap + (YOUTH[p.cls] || 0) + 0.25 * (now - cap) + (perf?.[p.id] || 0); };
+// Season résumé bonus per player, in OVR points (about -1.5 to +7).
+// Production: a per-game box-score score, scaled by games played. Awards: POY, All-America teams, position and conference awards.
+const AWARD_BONUS = [
+  [(a) => a.award === 'National Player of the Year' && a.place === 1, 3],
+  [(a) => a.award === 'National Player of the Year', 1],
+  [(a) => (a.award === 'Defensive Player of the Year' || a.award === 'Freshman of the Year') && a.place === 1, 1.2],
+  [(a) => a.award.startsWith('All-America First'), 2.2],
+  [(a) => a.award.startsWith('All-America Second'), 1.5],
+  [(a) => a.award.startsWith('All-America Third'), 1],
+  [(a) => a.group === 'position', 0.8],
+  [(a) => a.group === 'conf', 0.6],
+];
+export function draftPerf(ctx) {
+  const key = `${ctx.state.year}:${ctx.state.over ? 1 : 0}`;
+  if (ctx._draftPerf?.key === key) return ctx._draftPerf.v;
+  const v = {};
+  const rows = statRows(ctx.world, ctx.season);
+  const gmax = rows.reduce((m, r) => Math.max(m, r.GP), 1);
+  for (const r of rows) {
+    const g = r.pg, t = r.tot;
+    const prod = g.PTS + 0.9 * g.REB + 1.2 * g.AST + 1.5 * g.STL + 1.5 * g.BLK - g.TO - 0.4 * ((t.FGA - t.FGM) / r.GP);
+    v[r.pid] = Math.max(-1.5, Math.min(4, (prod - 14) / 4)) * Math.min(1, r.GP / (gmax * 0.5));
+  }
+  const h = ctx.state.history?.at(-1);
+  const awards = h && h.year === ctx.state.year && h.awards ? h.awards : ctx.state.over ? computeAwards(ctx.world, ctx.season) : [];
+  for (const a of awards) { const m = AWARD_BONUS.find(([hit]) => hit(a)); if (m) v[a.pid] = (v[a.pid] || 0) + m[1]; }
+  ctx._draftPerf = { key, v };
+  return v;
+}
 // Big board: every scholarship player in the country ranked by draft value (rank 1 = best prospect).
-export function bigBoard(world) {
+export function bigBoard(world, perf) {
   const all = [];
-  for (const [sid, t] of Object.entries(world.teams)) for (const p of t.roster) if (!p.walkOn) all.push({ p, sid, v: draftValue(p) });
+  for (const [sid, t] of Object.entries(world.teams)) for (const p of t.roster) if (!p.walkOn) all.push({ p, sid, v: draftValue(p, perf) });
   all.sort((a, b) => b.v - a.v);
   return all;
 }
@@ -206,7 +238,7 @@ export function runDraft(ctx) {
     const d = st.draft?.[p.id];
     if (p.cls !== 'SR' && !(d && d.status === 'gone')) continue;
     const boost = st.combine && st.combine.year === st.year ? st.combine.res[p.id]?.boost || 0 : 0; // NBA Combine
-    pool.push({ p, sid, v: draftValue(p) + boost + (rng.next() - 0.5) * 3 });
+    pool.push({ p, sid, v: draftValue(p, draftPerf(ctx)) + boost + (rng.next() - 0.5) * 3 });
   }
   pool.sort((a, b) => b.v - a.v);
   const order = NBA_TEAMS.slice().sort(() => rng.next() - 0.5);

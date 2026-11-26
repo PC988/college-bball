@@ -4,7 +4,7 @@
 import { makeRng } from './rng.js';
 import { Game } from './engine/game.js';
 import { ovr } from './player.js';
-import { draftValue, bigBoard } from './tourney.js';
+import { draftValue, bigBoard, draftPerf } from './tourney.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export const COMBINE_INVITES = 60;
@@ -60,7 +60,7 @@ function scrimmages(ctx, invited) {
 export function runCombine(ctx) {
   const st = ctx.state;
   const rng = makeRng(`${st.seed}:combine:${st.year}`);
-  const invited = draftPool(ctx).map((x) => ({ ...x, v: draftValue(x.p) })).sort((a, b) => b.v - a.v).slice(0, COMBINE_INVITES);
+  const invited = draftPool(ctx).map((x) => ({ ...x, v: draftValue(x.p, draftPerf(ctx)) })).sort((a, b) => b.v - a.v).slice(0, COMBINE_INVITES);
   const res = {};
   for (const x of invited) res[x.p.id] = { sid: x.sid, ...tests(x.p, rng) };
   const { lines, games } = scrimmages(ctx, invited);
@@ -86,7 +86,7 @@ export function runCombine(ctx) {
   after.forEach((id, i) => { res[id].post = i + 1; });
   // declared underclassmen re-project off the new board
   if (st.draft) {
-    const board = bigBoard(ctx.world).map((x) => ({ id: x.p.id, v: x.v + (res[x.p.id]?.boost || 0) })).sort((a, b) => b.v - a.v);
+    const board = bigBoard(ctx.world, draftPerf(ctx)).map((x) => ({ id: x.p.id, v: x.v + (res[x.p.id]?.boost || 0) })).sort((a, b) => b.v - a.v);
     board.forEach((x, i) => { if (st.draft[x.id]) st.draft[x.id].proj = i + 1; });
   }
   st.combine = { year: st.year, res, games };

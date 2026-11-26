@@ -470,7 +470,8 @@ function aiWants(ctx, sid, r, caps = classCaps(ctx, sid)) {
 function canLand(ctx, sid, r) {
   if (sid === ctx.state.schoolId || LETTER(r) !== 'A') return true;
   // 5-stars are never quota'd out: a program that already landed a lesser A still chases a top-25 kid
-  if (r.rank <= 25) return true;
+  // (up to two 5-stars for a blue blood, one for anyone else, so they don't all pile into three schools)
+  if (r.rank <= 25) return commitsFor(ctx, sid).filter((id) => ctx.byId[id].rank <= 25).length < (ctx.schools[sid].tier === 'BB' ? 2 : 1);
   const s = ctx.schools[sid];
   const haveA = commitsFor(ctx, sid).filter((id) => LETTER(ctx.byId[id]) === 'A').length;
   if (haveA < (s.tier === 'HM' ? 1 : classCaps(ctx, sid).A)) return true;
@@ -822,7 +823,7 @@ function declareForDraft(ctx) {
   st.draft = {};
   // Underclassmen declare only when they project as real picks. Young guys with upside who project late stay in school.
   let rank = 0;
-  for (const { p, sid } of T.bigBoard(ctx.world)) {
+  for (const { p, sid } of T.bigBoard(ctx.world, T.draftPerf(ctx))) {
     rank++;
     if (p.cls === 'SR') continue;
     if (rank > 50) break;
@@ -886,10 +887,33 @@ export function simMMRound(ctx) {
   }
   return { ok: true, msg: mm.champ ? 'Tournament over' : `${T.ROUND_NAMES[r]} done` };
 }
+// ---------- recruiting class rankings ----------
+// Points per signee fall off steeply with rank, so one 5-star outweighs a pile of 3-stars,
+// but every good player still adds: a 5-star plus a 4-star beats the same 5-star alone.
+export const recruitPoints = (rank) => 100 * Math.pow(21 / (rank + 20), 1.5);
+export function classRankings(ctx) {
+  const by = {};
+  for (const r of ctx.recruits) {
+    const sid = ctx.state.commits[r.id];
+    if (!sid) continue;
+    const c = (by[sid] ||= { sid, name: ctx.schools[sid]?.name || sid, score: 0, n: 0, stars: [0, 0, 0, 0, 0, 0], best: r.rank });
+    c.score += recruitPoints(r.rank); c.n++; c.stars[r.stars]++; c.best = Math.min(c.best, r.rank);
+  }
+  return Object.values(by).sort((a, b) => b.score - a.score).map((c, i) => ({ ...c, score: Math.round(c.score * 10) / 10, place: i + 1 }));
+}
+// Where the top recruits signed: [rank, name, pos, stars, sid or null].
+export const topSignings = (ctx, n = 50) => ctx.recruits.slice(0, n).map((r) => [r.rank, fullName(r), r.pos, r.stars, ctx.state.commits[r.id] || null, r.id]);
+function recordSignings(ctx, h) {
+  if (!h || h.classTop) return;
+  h.classTop = classRankings(ctx).slice(0, 10).map((c) => [c.sid, c.name, c.score, c.n, c.stars.slice(3).reverse().join('/')]);
+  h.recTop = topSignings(ctx, 10).map(([rank, name, pos, stars, sid]) => [rank, name, pos, stars, sid ? ctx.schools[sid].name : null]);
+}
+
 // History rows, with the finished season filled in for saves made before the History page recorded it.
 export function leagueHistory(ctx) {
   const st = ctx.state, h = st.history.at(-1);
   if (h && st.mm?.champ && h.year === st.year && !h.ff) { Object.assign(h, T.seasonRecord(ctx)); h.mmAw = T.mmAwards(ctx); }
+  if (h && st.over && h.year === st.year) recordSignings(ctx, h);
   return st.history;
 }
 export function simMMAll(ctx) { while (ctx.state.mm && !ctx.state.mm.champ) simMMRound(ctx); return { ok: true, msg: 'Tournament over' }; }

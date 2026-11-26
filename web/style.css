@@ -491,3 +491,11 @@ body.sheet-over-live .scrim { z-index: 31; }
 .box.career th, .box.career td { padding: 6px 5px; }
 .box.career tr.hs td { color: var(--muted); font-style: italic; }
 .box.career td small { font-size: 10px; font-weight: 800; color: var(--gold); text-transform: uppercase; }
+.stand.sg td { vertical-align: middle; }
+.stand.sg td:last-child { font-size: 14px; }
+.sgdot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.stand.sg { width: 100%; table-layout: fixed; }
+.stand.sg th:first-child, .stand.sg td:first-child { width: 34px; }
+.stand.sg th.n, .stand.sg td.n { width: 48px; }
+.stand.sg td { overflow-wrap: anywhere; }
+.stand.sg td div.muted { white-space: normal; }
