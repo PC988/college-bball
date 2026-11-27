@@ -59,7 +59,6 @@ input { width: 100%; font: inherit; font-size: 17px; color: var(--ink); backgrou
 #map .slbl { fill: #ffffff80; font-weight: 800; text-anchor: middle; pointer-events: none; letter-spacing: .5px; }
 #map .route { stroke: var(--gold); stroke-width: 3; stroke-dasharray: 8 7; fill: none; vector-effect: non-scaling-stroke; }
 #map .route.home { stroke: #ffffff70; stroke-width: 2; }
-.pin, .token, .chip, .homemark, .evmark { transform-box: view-box; }
 .pin { cursor: pointer; }
 .pin .head { fill: #0f1724; stroke-width: 2.5; }
 .pin.s5 .head { stroke: var(--gold); } .pin.s4 .head { stroke: #bcd3ee; } .pin.s3 .head { stroke: #ffffff; } .pin.s2 .head { stroke: #7d8fa3; }

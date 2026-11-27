@@ -190,6 +190,11 @@ function enterGame() {
   $('scrim').onclick = closeSheet;
   document.querySelectorAll('#tabbar button').forEach((b) => (b.onclick = () => setTab(b.dataset.tab)));
   bindGrab();
+  // iOS scrolls the whole app up for the keyboard and can leave it there, so every tap lands off target. Reset it.
+  const unshift = () => { if (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop) { window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; } };
+  document.addEventListener('focusout', (e) => { if (e.target.matches('input, textarea, select')) setTimeout(unshift, 60); });
+  window.visualViewport?.addEventListener('resize', () => setTimeout(unshift, 60));
+  window.addEventListener('pageshow', unshift);
   // tap feedback that survives re-renders long enough to see
   document.addEventListener('pointerdown', (e) => {
     const b = e.target.closest('button');
@@ -311,9 +316,16 @@ function applyView() {
   svg.setAttribute('viewBox', `${view.cx - w / 2} ${view.cy - h / 2} ${w} ${h}`);
   const unitsPerPx = w / W;
   svg.style.setProperty('--pk', unitsPerPx.toFixed(4));
+  if (unitsPerPx !== view.upp) { view.upp = unitsPerPx; placeMarks(); }
   svg.classList.toggle('z4', view.k >= 2.4);
   svg.classList.toggle('z3', view.k >= 4.5);
   svg.classList.toggle('z2', view.k >= 8);
+}
+// Pins and markers stay the same size on screen: scale them by map units per pixel. Done with the SVG transform
+// attribute, not CSS transforms, because iOS Safari hit-tests CSS-transformed SVG in the wrong place (taps landed low).
+function placeMarks() {
+  const k = view.upp || 1;
+  for (const el of $('map').querySelectorAll('[data-x]')) el.setAttribute('transform', `translate(${el.dataset.x} ${el.dataset.y}) scale(${(k * (Number(el.dataset.s) || 1)).toFixed(4)})${el.dataset.post ? ' ' + el.dataset.post : ''}`);
 }
 function zoomBy(f, ax, ay) {
   const k = Math.min(12, Math.max(0.9, view.k * f));
@@ -424,7 +436,7 @@ function renderMap() {
     const [x, y] = pins[r.id];
     const cls = `pin s${shownStars(r)} ${tier}${offered ? ' offered' : ''}${mine ? ' mine' : ''}${r.id === ui.selRecruit ? ' sel' : ''}`;
     const badge = todayIds.has(r.id) && !ctx.state.gameToday ? '<circle class="badge" cx="10" cy="-30" r="7"/><text class="badge-t" x="10" y="-26.5">!</text>' : '';
-    ph += `<g class="${cls}" data-rid="${r.id}" style="transform:translate(${x.toFixed(1)}px,${y.toFixed(1)}px) scale(calc(var(--pk) * .78))">
+    ph += `<g class="${cls}" data-rid="${r.id}" data-x="${x.toFixed(1)}" data-y="${y.toFixed(1)}" data-s=".78">
       <path class="head" d="M0 0 L-6 -13 A14 14 0 1 1 6 -13 Z"/><text y="-19">${r.pos}</text>${badge}</g>`;
   }
   $('pinLayer').innerHTML = ph;
@@ -438,17 +450,18 @@ function renderMap() {
     const [tx, ty] = posOf(ui.sel);
     rt += `<line class="route" x1="${sx}" y1="${sy}" x2="${tx}" y2="${ty}"/>`;
     const cost = C.travelCost(ctx.state.scout, ctx.state.scoutAt, ui.sel);
-    mk += `<g class="chip" style="transform:translate(${((sx + tx) / 2).toFixed(1)}px,${((sy + ty) / 2).toFixed(1)}px) scale(var(--pk))"><rect x="-28" y="-14" width="56" height="28" rx="14"/><text y="5">${cost} AP</text></g>`;
+    mk += `<g class="chip" data-x="${((sx + tx) / 2).toFixed(1)}" data-y="${((sy + ty) / 2).toFixed(1)}"><rect x="-28" y="-14" width="56" height="28" rx="14"/><text y="5">${cost} AP</text></g>`;
   }
   $('routes').innerHTML = rt;
-  mk += `<g class="homemark" style="transform:translate(${hx}px,${hy}px) scale(var(--pk)) translate(-22px,0)"><circle r="9" fill="${'#f5c542'}" stroke="#0b1626" stroke-width="2"/><path d="M-4.5 1 L0 -4 L4.5 1 V5 H-4.5 Z" fill="#0b1626"/></g>`;
+  mk += `<g class="homemark" data-x="${hx}" data-y="${hy}" data-post="translate(-22 0)"><circle r="9" fill="${'#f5c542'}" stroke="#0b1626" stroke-width="2"/><path d="M-4.5 1 L0 -4 L4.5 1 V5 H-4.5 Z" fill="#0b1626"/></g>`;
   const ev = C.eventToday(ctx);
-  if (ev) { const [ex, ey] = posOf(ev.state); mk += `<g class="evmark" style="transform:translate(${ex}px,${ey}px) scale(var(--pk))"><circle r="14" fill="#3d2a07" stroke="#f5c542" stroke-width="2.5"/><text y="6" text-anchor="middle" font-size="16" fill="#f5c542">★</text></g>`; }
+  if (ev) { const [ex, ey] = posOf(ev.state); mk += `<g class="evmark" data-x="${ex}" data-y="${ey}"><circle r="14" fill="#3d2a07" stroke="#f5c542" stroke-width="2.5"/><text y="6" text-anchor="middle" font-size="16" fill="#f5c542">★</text></g>`; }
   // scout van
-  mk += `<g class="token" style="transform:translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px) scale(var(--pk)) translate(14px,4px)">
+  mk += `<g class="token" data-x="${sx.toFixed(1)}" data-y="${sy.toFixed(1)}" data-post="translate(14 4)">
     <circle class="bg" r="18"/><rect x="-11" y="-7" width="22" height="11" rx="3" fill="#d6453c"/><rect x="-6" y="-11" width="12" height="6" rx="2" fill="#d6453c"/>
     <rect x="-4.5" y="-9.5" width="9" height="4" rx="1" fill="#bfe3ff"/><circle cx="-6" cy="5" r="3" fill="#1c2430"/><circle cx="6" cy="5" r="3" fill="#1c2430"/></g>`;
   $('markers').innerHTML = mk;
+  placeMarks();
 }
 
 // ---------- HUD ----------
