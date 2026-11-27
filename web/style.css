@@ -505,3 +505,9 @@ body.sheet-over-live .scrim { z-index: 31; }
 .linkrow input { flex: 1; min-width: 0; font-size: 16px; padding: 12px; border: 1px solid var(--line, #d5dbe3); border-radius: 12px; }
 .facts.hi { grid-template-columns: repeat(6, 1fr); }
 .facts.hi .v { font-size: 20px; }
+.hofpick { min-width: 34px; padding: 4px 8px; }
+.hofpick.on { background: var(--accent, #2e7d32); color: #fff; }
+#hofQ { width: 100%; box-sizing: border-box; }
+.stand.hof { table-layout: fixed; }
+.stand.hof th:nth-child(1) { width: 26px; } .stand.hof th:nth-child(3) { width: 54px; } .stand.hof th:nth-child(4) { width: 58px; }
+.stand.hof td { white-space: normal; vertical-align: middle; }

@@ -1025,6 +1025,11 @@ function bindPage(root) {
   on('[data-awyear]', (b) => { ui.awYear = b.dataset.awyear; render(); });
   on('[data-hiyear]', (b) => { ui.hiYear = b.dataset.hiyear; render(); });
   on('[data-himode]', (b) => { ui.hiMode = b.dataset.v; render(); });
+  on('[data-hofsid]', (b) => { ui.hofSid = b.dataset.hofsid; ui.hofQ = ''; ui.hofPick = []; render(); });
+  on('[data-hofpick]', (b) => { const id = b.dataset.hofpick, l = (ui.hofPick ||= []); const i = l.indexOf(id); if (i >= 0) l.splice(i, 1); else if (l.length < 10) l.push(id); render(); });
+  on('[data-hofplay]', () => { const gm = C.legendsGame(ctx, ui.hofSid && ctx.world.teams[ui.hofSid] ? ui.hofSid : ctx.state.schoolId, ui.hofPick || []); if (gm) { save(); startLive(gm, 'legends'); } });
+  const hq = root.querySelector('#hofQ');
+  if (hq) hq.oninput = (e) => { ui.hofQ = e.target.value.trim().toLowerCase(); const pos = e.target.selectionStart; render(); const n = document.getElementById('hofQ'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } };
   on('[data-hiaw]', (b) => { ui.awYear = b.dataset.hiaw; ui.seasonView = 'awards'; render(); });
 }
 
@@ -1036,6 +1041,7 @@ function minutesPlan(order) {
   return Object.fromEntries(order.map((p, i) => [p.id, t[i] || 0]));
 }
 const SLOTS = ['PG', 'SG', 'SF', 'PF', 'C'];
+const HIMODES = [['seasons', 'Seasons'], ['records', 'Records'], ['hof', 'Hall of Fame']];
 function renderRoster() {
   const root = $('page-roster');
   const order = rotationOrder();
@@ -1150,7 +1156,32 @@ function renderSeason() {
       <div class="panel"><div class="kick">Conference Players of the Year</div><table class="stand aw">${grp('conf').map((a) => row(a, a.conf || a.award)).join('')}</table></div>` : '<div class="note">Play some games first.</div>'}`;
   }
   if (v === 'mm' && ctx.state.mm) body = bracketHtml();
-  if (v === 'history' && ui.hiMode === 'records') {
+  if (v === 'history' && ui.hiMode === 'hof') {
+    const sid = ui.hofSid && ctx.world.teams[ui.hofSid] ? ui.hofSid : ctx.state.schoolId;
+    const t = ctx.world.teams[sid];
+    const H = C.hallOfFame(ctx, sid), picks = C.teamDraftPicks(ctx, sid);
+    const sel = (ui.hofPick ||= []).filter((id) => H.some((x) => x.pid === id && x.playable));
+    ui.hofPick = sel;
+    const pg = (v, n) => (n ? (v / n).toFixed(1) : '0.0');
+    const yrs = (x) => (x.y1 == null ? '' : x.y1 === x.y2 ? `${x.y1}-${String(x.y1 + 1).slice(2)}` : `${x.y1}-${String(x.y2 + 1).slice(2)}`);
+    const who = (x) => (findPlayer(x.pid) ? pname(x.pid, esc(x.name)) : esc(x.name));
+    const rows = H.map((x, i) => `<tr class="${sel.includes(x.pid) ? 'me' : ''}"><td>${i + 1}</td><td><b>${who(x)}</b> <span class="muted">${x.pos}${yrs(x) ? ` · ${yrs(x)}` : ''}${x.active ? ' · <span class="tag">Active</span>' : ''}</span>
+      <div class="muted aw-s">${x.GP ? `${x.GP} games · ${pg(x.PTS, x.GP)} PPG · ${pg(x.REB, x.GP)} RPG · ${pg(x.AST, x.GP)} APG` : 'Stats from before records were kept'}</div>
+      ${x.awards.length ? `<div class="muted aw-s">🏅 ${x.awards.map((a) => `${esc(a.award)} '${String(a.year + 1).slice(2)}`).join(', ')}</div>` : ''}</td><td class="n"><b>${x.legacy}</b></td>
+      <td class="n">${x.playable ? `<button class="btn ghost hofpick ${sel.includes(x.pid) ? 'on' : ''}" data-hofpick="${x.pid}">${sel.includes(x.pid) ? '✓' : '+'}</button>` : `<span class="muted aw-s">${x.active && sid === ctx.state.schoolId ? 'On your team' : 'No ratings'}</span>`}</td></tr>`).join('');
+    const hits = ui.hofQ ? SCHOOL_DATA.schools.filter((s) => ctx.world.teams[s.id] && (s.name.toLowerCase().includes(ui.hofQ) || s.abbr.toLowerCase() === ui.hofQ)).slice(0, 6) : [];
+    body = `${segHtml('hm', HIMODES, 'hof', 'data-himode')}
+      <div class="panel"><div class="kick">Pick a program</div>
+        <input id="hofQ" placeholder="Search any school" value="${esc(ui.hofQ || '')}" autocomplete="off">
+        <div class="school-results">${hits.map((s) => `<button data-hofsid="${s.id}"><span>${esc(s.name)}</span><span class="muted">${s.tier} · ${s.state}</span></button>`).join('')}</div>
+        ${sid !== ctx.state.schoolId ? `<button class="btn ghost" data-hofsid="${ctx.state.schoolId}" style="margin-top:6px">Back to ${esc(ctx.school.name)}</button>` : ''}</div>
+      <div class="panel"><div class="kick">Hall of Fame · ${esc(t.school.name)}</div>${H.length ? `<table class="stand aw hof"><tr><th>#</th><th>Player</th><th class="n">Legacy</th><th class="n"></th></tr>${rows}</table>` : '<div class="note">No legends yet. They show up once players log games here.</div>'}
+        <div class="note">Legacy = production at this school plus awards. Tap + on 5 to 10 legends to build a lineup. Players who left before v1.09 kept their stats and awards but not their ratings, so they can't play.</div>
+        <button class="btn primary wide" data-hofplay ${sel.length >= 5 ? '' : 'disabled'}>${sel.length >= 5 ? `Play your team vs ${esc(t.school.name)} Legends (${sel.length})` : `Pick ${5 - sel.length} more legend${5 - sel.length === 1 ? '' : 's'} to play`}</button>
+        <div class="note">Exhibition only: no record, stats or ratings change.</div></div>
+      <div class="panel"><div class="kick">NBA draft picks · ${esc(t.school.name)}</div>${picks.length ? `<table class="stand"><tr><th>Draft</th><th class="n">Pick</th><th>Player</th><th>NBA team</th></tr>${picks.map(([y, pk, n, pos, team]) => `<tr><td>${y}</td><td class="n">#${pk}${pk <= 30 ? '' : ' <span class="muted">(2nd)</span>'}</td><td>${esc(n)} <span class="muted">${pos}</span></td><td class="muted">${esc(team)}</td></tr>`).join('')}</table>` : '<div class="note">No picks on record.</div>'}
+        ${sid !== ctx.state.schoolId ? '<div class="note">Other schools\' picks are recorded from v1.09 on.</div>' : ''}</div>`;
+  } else if (v === 'history' && ui.hiMode === 'records') {
     const R = C.programRecords(ctx);
     const who = (x) => (findPlayer(x.pid) ? pname(x.pid, esc(x.name)) : esc(x.name));
     const pg = (v, n) => (n ? (v / n).toFixed(1) : '0.0');
@@ -1160,7 +1191,7 @@ function renderSeason() {
       ${p.awards.length ? `<div class="muted aw-s">🏅 ${p.awards.map((a) => `${esc(a.award)} '${String(a.year + 1).slice(2)}`).join(', ')}</div>` : ''}</td><td class="n"><b>${p.legacy}</b></td></tr>`; }).join('');
     const career = Object.entries(R.career).map(([k, l]) => `<tr><td class="muted">${k}</td><td>${l.length ? l.map((x, i) => `${i ? '<span class="muted">' : '<b>'}${who(x)} ${x.v.toLocaleString()}${i ? '</span>' : '</b>'}`).join('<br>') : '<span class="muted">-</span>'}</td></tr>`).join('');
     const single = Object.entries(R.single).map(([k, x]) => `<tr><td class="muted">${k}</td><td>${x ? `<b>${who(x)}</b> ${Number.isInteger(x.v) ? x.v : x.v.toFixed(1)} <span class="muted">${sy(x.r[0])}${x.r[15] ? ' (so far)' : ''}</span>` : '<span class="muted">-</span>'}</td></tr>`).join('');
-    body = `${segHtml('hm', [['seasons', 'Seasons'], ['records', 'Program records']], 'records', 'data-himode')}
+    body = `${segHtml('hm', HIMODES, 'records', 'data-himode')}
       ${R.greats.length ? `<div class="panel"><div class="kick">Greatest players · ${esc(ctx.school.name)}</div><table class="stand aw"><tr><th>#</th><th>Player</th><th class="n">Legacy</th></tr>${greats}</table>
         <div class="note">Legacy = career production in your uniform (points, boards, assists, steals, blocks) plus awards: POY 40, All-America 25/18/12, Final Four MOP 15, DPOY/FOY 15, position award 10, conference POY 8, All-Tournament 6.</div></div>
       <div class="panel"><div class="kick">Career leaders</div><table class="stand">${career}</table></div>
@@ -1189,7 +1220,7 @@ function renderSeason() {
           <button class="btn ghost" data-hiaw="${x.year}" style="margin-top:8px">Every award from ${sy(x.year)} ›</button></div>` : ''}
         ${x.top25 ? `<div class="panel"><div class="kick">Final Top 25 · after March Madness</div><table class="stand"><tr><th>#</th><th>Team</th><th class="n">Record</th></tr>${x.top25.map(([sid, n, W, L], i) => `<tr class="${sid === ctx.state.schoolId ? 'me' : ''}"><td>${i + 1}</td><td>${esc(n)}${sid === x.champSid ? ' 🏆' : ''}</td><td class="n">${W}-${L}</td></tr>`).join('')}</table></div>` : ''}`;
     }
-    body = `${segHtml('hm', [['seasons', 'Seasons'], ['records', 'Program records']], 'seasons', 'data-himode')}${done.length ? `<div class="filters">${done.map((d) => `<button data-hiyear="${d.year}" class="${d.year === yr ? 'on' : ''}">${sy(d.year)}</button>`).join('')}</div>${season}` : '<div class="note">Champions, rankings and award winners show up here once a season ends.</div>'}
+    body = `${segHtml('hm', HIMODES, 'seasons', 'data-himode')}${done.length ? `<div class="filters">${done.map((d) => `<button data-hiyear="${d.year}" class="${d.year === yr ? 'on' : ''}">${sy(d.year)}</button>`).join('')}</div>${season}` : '<div class="note">Champions, rankings and award winners show up here once a season ends.</div>'}
       <div class="panel"><div class="kick">Your program</div>${h.length ? `<table class="stand"><tr><th>Season</th><th class="n">Record</th><th class="n">Conf</th><th class="n">Class</th><th>March</th><th class="n">Prestige</th></tr>${h.map((x) => `<tr><td>${x.year}-${String(x.year + 1).slice(2)}</td><td class="n">${x.W}-${x.L}</td><td class="n">${x.cW}-${x.cL}</td><td class="n">${x.signed}/${x.slots}</td><td class="muted">${esc(x.mm ? x.mm.replace('Lost in the ', '').replace('National champion', '🏆 Champs') : '—')}</td><td class="n">${x.prestige ? `${x.prestige[1]} <span class="muted">${sgn(x.prestige[1] - x.prestige[0])}</span>` : '—'}</td></tr>`).join('')}</table>` : '<div class="note">Your first season is in progress.</div>'}</div>`;
   }
   root.innerHTML = `<h2>${ctx.state.year}-${String(ctx.state.year + 1).slice(2)} season</h2><div class="filters sv">${[['schedule', 'Schedule'], ['standings', 'Standings'], ['top25', 'Top 25'], ['leaders', 'Leaders'], ['awards', 'Awards']].concat(ctx.state.mm ? [['mm', 'March Madness']] : [], [['history', 'History']]).map(([k, l]) => `<button data-sv="${k}" data-v="${k}" class="${k === v ? 'on' : ''}">${l}</button>`).join('')}</div>${body}`;
@@ -1633,7 +1664,8 @@ function finishLive() {
   if (live.done) return;
   live.done = true;
   clearTimeout(live.timer);
-  if (live.kind === 'mcd') C.finishMcdGame(ctx, live.gm);
+  if (live.kind === 'legends') { /* exhibition: nothing recorded */ }
+  else if (live.kind === 'mcd') C.finishMcdGame(ctx, live.gm);
   else if (ctx.state.over) C.finishMMGame(ctx, live.gm); else C.finishUserGame(ctx, live.gm);
   save();
   renderLive();

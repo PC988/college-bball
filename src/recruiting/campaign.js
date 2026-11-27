@@ -139,6 +139,7 @@ function freshSeasonState(base) {
     highs: base.highs || {}, // pid -> career single-game highs [PTS, REB, AST, STL, BLK, 3PM]
     alumni: base.alumni || {}, // pid -> 'Name|POS' for everyone who played for you (names outlive the roster)
     prestige: base.prestige || {}, tiers: base.tiers || {}, // per-school prestige/tier that moved off the base data
+    hof: base.hof || null, // sid -> top departed players [pid, name, pos, ht, face, legacy, y1, y2, GP, PTS, REB, AST, ratings|''], see induct
     scouted: base.scouted || {}, // pid -> 1 once you've seen his potential (in person); kept across seasons
   };
 }
@@ -1033,7 +1034,7 @@ export function startDraft(ctx) {
     for (const x of st.nba) if (st.draft?.[x.pid]) st.draft[x.pid].pick = x.pick;
     const mine = st.nba.filter((x) => x.sid === st.schoolId);
     const h = st.history.at(-1);
-    if (h) h.nba = mine.map((x) => `#${x.pick} ${x.name} (${x.team})`);
+    if (h) { h.nba = mine.map((x) => `#${x.pick} ${x.name} (${x.team})`); h.picks = st.nba.map((x) => [x.pick, x.name, x.pos, x.sid, x.team]); }
     log(ctx, `NBA Draft: ${st.nba[0].name} (${st.nba[0].school}) goes #1 to the ${st.nba[0].team}. ${mine.length} of your players were drafted.`, 'event');
   }
   return { ok: true, msg: 'The draft is on' };
@@ -1242,6 +1243,113 @@ export function programRecords(ctx) {
   };
 }
 
+// ---------- Hall of Fame: every program's best players ever, its draft picks, and a legends game ----------
+// Each program keeps its top HOF_KEEP departed players with a ratings snapshot from his last season, so the legends
+// can play again. Players who left before this existed have stats and awards only (no ratings to play with).
+const HOF_KEEP = 8;
+const HOF_SK = ['LAY', 'DNK', 'INS', 'MID', 'TPT', 'FTS', 'DRB', 'PAS', 'ORE', 'DRE', 'STL', 'BLK'], HOF_PH = ['STR', 'SPD', 'STM'];
+const packRatings = (p) => [...HOF_SK.map((k) => p.skills[k].cur), ...HOF_PH.map((k) => p.phys[k].cur)].map((v) => Math.max(0, Math.round(v)).toString(36).padStart(2, '0')).join('');
+const unpackRatings = (str) => { const v = str.match(/../g).map((x) => parseInt(x, 36)); return { skills: Object.fromEntries(HOF_SK.map((k, i) => [k, { cur: v[i], cap: v[i] }])), phys: Object.fromEntries(HOF_PH.map((k, i) => [k, { cur: v[12 + i], cap: v[12 + i] }])) }; };
+function awardIndex(ctx) {
+  const idx = {};
+  for (const h of ctx.state.history || []) for (const a of [...(h.awards || []), ...(h.mmAw || [])]) {
+    if (!a.pid || !a.sid) continue;
+    const m = LEGACY_AWARDS.find(([hit]) => hit(a));
+    if (!m) continue;
+    ((idx[a.sid] ||= {})[a.pid] ||= []).push({ year: h.year, award: a.place > 1 ? `${a.award} (${a.place === 2 ? '2nd' : '3rd'})` : a.award, pts: m[1], name: a.name, pos: a.pos });
+  }
+  return idx;
+}
+// Legacy for one player at one school: career production there plus award points (same formula as programRecords).
+function legacyAt(ctx, pid, sid, aw) {
+  const mine = sid === ctx.state.schoolId;
+  const rows = careerFor(ctx, pid).filter((r) => r[0] !== CAREER_HS && (mine ? r[14] === 1 : r[14] !== 1));
+  const t = [0, 0, 0, 0, 0, 0, 0, 0];
+  for (const r of rows) for (let i = 1; i <= 7; i++) t[i] += r[i];
+  const awards = aw[sid]?.[pid] || [];
+  const prod = (t[3] + 1.2 * t[4] + 1.5 * t[5] + 2 * t[6] + 2 * t[7]) / 12;
+  const ys = rows.map((r) => r[0]);
+  return { legacy: Math.round(prod + awards.reduce((a, x) => a + x.pts, 0)), y1: ys.length ? Math.min(...ys) : null, y2: ys.length ? Math.max(...ys) : null, GP: t[1], PTS: t[3], REB: t[4], AST: t[5], awards };
+}
+function hofAdd(ctx, sid, e) {
+  const st = ctx.state;
+  const list = ((st.hof ||= {})[sid] ||= []).filter((x) => x[0] !== e[0]);
+  list.push(e);
+  list.sort((a, b) => b[5] - a[5]);
+  st.hof[sid] = list.slice(0, HOF_KEEP);
+}
+function induct(ctx, sid, p, aw) {
+  const L = legacyAt(ctx, p.id, sid, aw);
+  if (!L.GP && !L.awards.length) return;
+  const list = ctx.state.hof?.[sid] || [];
+  if (list.length >= HOF_KEEP && L.legacy <= list.at(-1)[5]) return;
+  hofAdd(ctx, sid, [p.id, fullName(p), p.pos, p.ht, p.appearance?.seed ?? 0, L.legacy, L.y1, L.y2, L.GP, L.PTS, L.REB, L.AST, packRatings(p)]);
+}
+// Once per save: seed the Hall from what survives of the past (award winners everywhere, your own alumni's careers).
+function hofBackfill(ctx) {
+  const st = ctx.state;
+  if (st.hof) return;
+  st.hof = {};
+  const aw = awardIndex(ctx);
+  const live = new Set(); for (const t of Object.values(ctx.world.teams)) for (const p of t.roster) live.add(p.id);
+  for (const [sid, ps] of Object.entries(aw)) for (const [pid, list] of Object.entries(ps)) {
+    if (live.has(pid)) continue;
+    const L = legacyAt(ctx, pid, sid, aw);
+    hofAdd(ctx, sid, [pid, list[0].name, list[0].pos, 0, 0, L.legacy, L.y1 ?? list[0].year, L.y2 ?? list.at(-1).year, L.GP, L.PTS, L.REB, L.AST, '']);
+  }
+  const me = st.schoolId;
+  for (const [pid, v] of Object.entries(st.alumni || {})) {
+    if (live.has(pid)) continue;
+    const L = legacyAt(ctx, pid, me, aw);
+    if (!L.GP) continue;
+    const [name, pos] = v.split('|');
+    hofAdd(ctx, me, [pid, name, pos, 0, 0, L.legacy, L.y1, L.y2, L.GP, L.PTS, L.REB, L.AST, '']);
+  }
+}
+// A program's Hall of Fame: departed legends plus anyone on the current roster who already ranks. Top 10.
+export function hallOfFame(ctx, sid) {
+  hofBackfill(ctx);
+  const aw = awardIndex(ctx);
+  const t = ctx.world.teams[sid];
+  const out = (ctx.state.hof[sid] || []).map(([pid, name, pos, ht, face, legacy, y1, y2, GP, PTS, REB, AST, rt]) => ({ pid, name, pos, ht, face, legacy, y1, y2, GP, PTS, REB, AST, playable: !!rt, active: false, awards: aw[sid]?.[pid] || [] }));
+  for (const p of t?.roster || []) {
+    const L = legacyAt(ctx, p.id, sid, aw);
+    if (L.GP || L.awards.length) out.push({ pid: p.id, name: fullName(p), pos: p.pos, ht: p.ht, legacy: L.legacy, y1: L.y1, y2: L.y2, GP: L.GP, PTS: L.PTS, REB: L.REB, AST: L.AST, playable: sid !== ctx.state.schoolId, active: true, awards: L.awards });
+  }
+  return out.sort((a, b) => b.legacy - a.legacy).slice(0, 10);
+}
+// Every NBA pick a program produced, newest first: [draftYear, pick, name, pos, nbaTeam].
+export function teamDraftPicks(ctx, sid) {
+  const st = ctx.state, me = st.schoolId, out = [];
+  for (const h of st.history || []) {
+    if (h.picks) { for (const [pick, name, pos, s, team] of h.picks) if (s === sid) out.push([h.year + 1, pick, name, pos, team]); }
+    else if (h.year === st.year && st.nba) { for (const x of st.nba) if (x.sid === sid) out.push([h.year + 1, x.pick, x.name, x.pos, x.team]); }
+    else if (sid === me && h.nba) for (const s of h.nba) { const m = s.match(/^#(\d+) (.+) \((.+)\)$/); if (m) out.push([h.year + 1, Number(m[1]), m[2], '', m[3]]); }
+  }
+  return out.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+}
+// Legends game: your current team against 5-10 Hall of Famers you picked from any program. Counts for nothing.
+export function legendsGame(ctx, sid, pids) {
+  const hof = hallOfFame(ctx, sid);
+  const pick = pids.map((id) => hof.find((x) => x.pid === id)).filter((x) => x && x.playable);
+  if (pick.length < 5) return null;
+  const t = ctx.world.teams[sid];
+  const live = Object.fromEntries((t?.roster || []).map((p) => [p.id, p]));
+  const store = Object.fromEntries((ctx.state.hof[sid] || []).map((e) => [e[0], e]));
+  const roster = pick.map((x) => {
+    if (live[x.pid]) return { ...live[x.pid], id: `hof-${x.pid}` };
+    const e = store[x.pid], sp = x.name.indexOf(' ');
+    return { id: `hof-${x.pid}`, fn: x.name.slice(0, sp), ln: x.name.slice(sp + 1), pos: x.pos, ht: e[3] || 78, wt: 210, cls: 'SR', num: 0, appearance: { seed: e[4], v: 0 }, ...unpackRatings(e[12]) };
+  });
+  const s = t.school;
+  const home = { ...ctx.world.teams[ctx.state.schoolId], tactics: { ...ctx.state.tactics } };
+  const away = { school: { id: `hof-${sid}`, name: `${s.name} Legends`, abbr: `${s.abbr}*`, color: s.color || '#7a5c00' }, roster, tactics: { depth: Math.min(10, Math.max(7, roster.length)) } };
+  const gm = new Game(home, away, { seed: `${ctx.state.seed}:legends:${Date.now()}`, neutral: true });
+  gm.userSide = 'home';
+  gm.exhibition = true;
+  return gm;
+}
+
 // His rows plus the season in progress, for the player card.
 export function careerFor(ctx, pid) {
   const rows = (ctx.state.careers?.[pid] || []).slice();
@@ -1269,6 +1377,8 @@ export function advanceSeason(ctx, { cuts = [] } = {}) {
   const cutIds = new Set(cuts.filter((id) => userTeam.roster.find((p) => p.id === id)?.walkOn));
   const draftedUser = userTeam.roster.filter((p) => leaving.has(p.id));
   const cutUser = userTeam.roster.filter((p) => cutIds.has(p.id));
+  hofBackfill(ctx);
+  const before = Object.fromEntries(Object.entries(ctx.world.teams).map(([sid, t]) => [sid, t.roster.slice()]));
   for (const [sid, t] of Object.entries(ctx.world.teams)) {
     t.roster = t.roster.filter((p) => !leaving.has(p.id) && !cutIds.has(p.id));
     const incoming = commitsFor(ctx, sid).map((rid) => {
@@ -1281,6 +1391,8 @@ export function advanceSeason(ctx, { cuts = [] } = {}) {
     const log_ = advanceRoster(t, rng, incoming);
     if (sid === st.schoolId) userLog = { ...log_, drafted: draftedUser, cutByYou: cutUser };
   }
+  const aw = awardIndex(ctx);
+  for (const [sid, t] of Object.entries(ctx.world.teams)) { const stay = new Set(t.roster.map((p) => p.id)); for (const p of before[sid]) if (!stay.has(p.id)) induct(ctx, sid, p, aw); }
   pruneCareers(ctx);
   const rosters = Object.fromEntries(Object.entries(ctx.world.teams).map(([id, t]) => [id, t.roster.map(packPlayer)]));
   const ids = new Set(ctx.world.teams[st.schoolId].roster.map((p) => p.id));
