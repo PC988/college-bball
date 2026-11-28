@@ -128,7 +128,7 @@ export const DEFAULT_TACTICS = { tempo: 'normal', defense: 'man', focus: 'balanc
 
 function freshSeasonState(base) {
   return {
-    v: 2, gainV: 3, seed: base.seed, schoolId: base.schoolId, scout: base.scout, year: base.year, rosters: base.rosters || null,
+    v: 2, gainV: 4, seed: base.seed, schoolId: base.schoolId, scout: base.scout, year: base.year, rosters: base.rosters || null,
     tactics: base.tactics || { ...DEFAULT_TACTICS }, history: base.history || [],
     day: 1, ap: AP_PER_DAY, apMax: AP_PER_DAY, lodgingDue: 0, gamePlayed: false,
     scoutAt: null, gameToday: null, burned: [], knowledge: {}, interest: {}, offers: {}, commits: {},
@@ -207,14 +207,16 @@ export const loadCampaign = (json) => migrateGain(hydrate(JSON.parse(json)));
 // scale it once by the same factor your own interest always had, so the race in progress stays fair.
 function migrateGain(ctx) {
   const st = ctx.state;
-  if (st.gainV === 3) return ctx;
+  if (st.gainV === 4) return ctx;
   for (const [rid, m] of Object.entries(st.interest || {})) {
     const r = ctx.byId[rid];
     if (!r) continue;
-    // before v1.12 rivals skipped GAIN; v1.13 scales everyone's numbers by SCALE (same factor as the commit bars)
-    for (const sid of Object.keys(m)) m[sid] = Math.min(100, Math.round(m[sid] * (st.gainV !== 2 && sid !== st.schoolId ? GAIN(r) : 1) * SCALE(r) * 10) / 10);
+    // before v1.12 rivals skipped GAIN; v1.13 scaled everyone by SCALE_V3 (same factor as the commit bars, which
+    // moved with it). v1.14 bars stay put, so only the v1.13 step is replayed for older saves.
+    const f = st.gainV === 3 ? 1 : SCALE_V3(r);
+    for (const sid of Object.keys(m)) m[sid] = Math.min(100, Math.round(m[sid] * (st.gainV !== 2 && st.gainV !== 3 && sid !== st.schoolId ? GAIN(r) : 1) * f * 10) / 10);
   }
-  st.gainV = 3;
+  st.gainV = 4;
   return ctx;
 }
 
@@ -261,7 +263,9 @@ export const INTEREST = { visit: 10, game: 8, event: 4, phone: 3, film: 1, exact
 const GAIN = (r) => 0.8 * (r.rank <= 25 ? 0.5 : r.rank <= 50 ? 0.8 : 1);
 // v1.13: bigger, readable numbers. Every school's gains on a recruit are multiplied by the same SCALE as his commit
 // bar, so races and timing are unchanged but one good visit shows up as real progress.
-const SCALE = (r) => (r.rank <= 25 ? 2 : r.rank <= 150 ? 1.5 : 1.25);
+const SCALE_V3 = (r) => (r.rank <= 25 ? 2 : r.rank <= 150 ? 1.5 : 1.25); // v1.13, kept for save migration
+// v1.14: actions count for more on everyone (commit bars unchanged), so elite races move faster for all programs.
+const SCALE = (r) => (r.rank <= 25 ? 3.5 : r.rank <= 50 ? 2.4 : r.rank <= 150 ? 1.8 : 1.25);
 // How much fit moves interest gains: +-15% at most, same for every program (fit itself runs 0.05 to 2+).
 // Fit still decides close races (tie-breaks) and who a recruit lists as favorites.
 export const pull = (r, s) => clamp(Math.sqrt(fit(r, s)), 0.85, 1.15);
