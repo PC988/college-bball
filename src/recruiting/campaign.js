@@ -214,7 +214,7 @@ function migrateGain(ctx) {
     // before v1.12 rivals skipped GAIN; v1.13 scaled everyone by SCALE_V3 (same factor as the commit bars, which
     // moved with it). v1.14 bars stay put, so only the v1.13 step is replayed for older saves.
     const f = st.gainV === 3 ? 1 : SCALE_V3(r);
-    for (const sid of Object.keys(m)) m[sid] = Math.min(100, Math.round(m[sid] * (st.gainV !== 2 && st.gainV !== 3 && sid !== st.schoolId ? GAIN(r) : 1) * f * 10) / 10);
+    for (const sid of Object.keys(m)) m[sid] = Math.round(m[sid] * (st.gainV !== 2 && st.gainV !== 3 && sid !== st.schoolId ? GAIN(r) : 1) * f * 10) / 10;
   }
   st.gainV = 4;
   return ctx;
@@ -277,7 +277,7 @@ function addInterest(ctx, rid, schoolId, amount) {
   amount *= hardness(r) * GAIN(r) * SCALE(r); // everyone moves an elite kid slowly, at the same rate
   if (schoolId === ctx.state.schoolId && isBurned(ctx, rid)) return;
   const m = (ctx.state.interest[rid] ||= {});
-  m[schoolId] = Math.min(100, Math.round(((m[schoolId] || 0) + amount) * 10) / 10);
+  m[schoolId] = Math.round(((m[schoolId] || 0) + amount) * 10) / 10; // no cap (v1.15): more work, bigger lead
 }
 
 function spend(ctx, cost) {
@@ -750,11 +750,10 @@ function resolveCommitments(ctx, signingDay) {
     let [lead, lv] = ranked[0];
     let sv = ranked[1]?.[1] || 0;
     const rng = makeRng(`${ctx.state.seed}:commit:${rid}:${day}`);
-    // Interest tops out at 100, so an elite kid can have several programs maxed out and no clear leader.
-    // Once his day comes he breaks the tie himself: best fit first, prestige next, a little luck.
-    // From his decision day on, programs within 5 points of the top count as tied too: close races still end.
-    const tied = ranked.filter(([, v]) => v >= Math.min(100, lv - 5));
-    if (tied.length > 1 && day >= decisionDay(ctx, r) && (lv >= 100 || day > decisionDay(ctx, r) + 2)) {
+    // Interest has no cap, so the program that works hardest builds the biggest lead. A race still within 5 points
+    // a few days past his decision day is a dead heat: he breaks it himself (best fit first, prestige next, luck).
+    const tied = ranked.filter(([, v]) => v >= lv - 5);
+    if (tied.length > 1 && day > decisionDay(ctx, r) + 2) {
       const pick = makeRng(`${ctx.state.seed}:tie:${rid}:${day}`);
       lead = pick.weighted(tied.map(([sid]) => sid), tied.map(([sid]) => fit(r, ctx.schools[sid]) ** 3 * (0.5 + ctx.schools[sid].prestige / 100)));
       sv = 0;
