@@ -834,7 +834,7 @@ export function prepareUserGame(ctx) {
 // Record a finished Game as tonight's result (box score kept in the save).
 export function finishUserGame(ctx, gm) {
   const res = gm.result();
-  const c = compactResult(res);
+  const c = compactResult(res, true);
   ctx.state.userGames[gm.gi] = c;
   recordGame(ctx.world, ctx.season, gm.gi, c);
   ctx.state.gamePlayed = true;

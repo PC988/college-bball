@@ -109,9 +109,36 @@ function emptyRecord() { return { W: 0, L: 0, cW: 0, cL: 0, PF: 0, PA: 0 }; }
 const LINE_KEYS = ['SEC', 'PTS', 'FGM', 'FGA', 'TPM', 'TPA', 'FTM', 'FTA', 'ORB', 'DRB', 'AST', 'STL', 'BLK', 'TO', 'PF', 'PM'];
 
 // Small, saveable form of a game result: scores + every player's line.
-export function compactResult(res) {
+export function compactResult(res, withShots = false) {
   const side = (s) => s.players.map((p) => [p.id, p.starter ? 1 : 0, ...LINE_KEYS.map((k) => p[k])]);
-  return { s: [res.home.score, res.away.score, res.periods], h: side(res.home), a: side(res.away) };
+  const c = { s: [res.home.score, res.away.score, res.periods], h: side(res.home), a: side(res.away) };
+  if (withShots) c.sh = packShots(res);
+  return c;
+}
+
+// ---------- shot charts ----------
+// Every field-goal attempt: { side, pid, type: rim|post|mid|three, made, period }. Live games read the play-by-play;
+// saved games keep a packed string, 5 chars a shot: side (h/a), player index on that side (base 36), type, made, period.
+const SHOT_CH = { rim: 'r', post: 'p', mid: 'm', three: 't' }, CH_SHOT = { r: 'rim', p: 'post', m: 'mid', t: 'three' };
+function shotsFromEvents(events) {
+  const out = [];
+  for (const e of events || []) {
+    if (!e.shot || !e.pid) continue;
+    if (e.type === 'score') out.push({ side: e.team, pid: e.pid, type: e.shot, made: true, period: e.period });
+    else if (e.type === 'miss' || e.type === 'block') out.push({ side: e.team, pid: e.pid, type: e.shot, made: false, period: e.period });
+  }
+  return out;
+}
+function packShots(res) {
+  const idx = { home: Object.fromEntries(res.home.players.map((p, i) => [p.id, i])), away: Object.fromEntries(res.away.players.map((p, i) => [p.id, i])) };
+  return shotsFromEvents(res.events).filter((x) => idx[x.side][x.pid] !== undefined)
+    .map((x) => `${x.side === 'home' ? 'h' : 'a'}${idx[x.side][x.pid].toString(36)}${SHOT_CH[x.type]}${x.made ? 1 : 0}${Math.min(9, x.period)}`).join('');
+}
+// Shots for any result shape: a live/just-played result, or an expanded saved one. null = not recorded (older games).
+export function gameShots(res) {
+  if (res.shots) return res.shots;
+  if (res.events && res.events.length) return shotsFromEvents(res.events);
+  return null;
 }
 
 // Rebuild box-score shaped sides from a compact result.
@@ -133,7 +160,9 @@ export function expandCompact(world, homeId, awayId, c) {
     totals.PM = 0;
     return { schoolId: tid, name: t.school.name, abbr: t.school.abbr, score, players, totals };
   };
-  return { home: side(g.home, c.h, c.s[0]), away: side(g.away, c.a, c.s[1]), periods: c.s[2], events: [] };
+  const out = { home: side(g.home, c.h, c.s[0]), away: side(g.away, c.a, c.s[1]), periods: c.s[2], events: [] };
+  if (c.sh) out.shots = (c.sh.match(/...../g) || []).map((x) => { const sd = x[0] === 'h' ? 'home' : 'away'; return { side: sd, pid: out[sd].players[parseInt(x[1], 36)]?.id, type: CH_SHOT[x[2]], made: x[3] === '1', period: Number(x[4]) }; });
+  return out;
 }
 
 function addStats(world, season, tid, lines) {

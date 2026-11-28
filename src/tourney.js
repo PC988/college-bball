@@ -95,7 +95,7 @@ export function recordMM(ctx, gm) {
   const res = gm.result();
   const g = ctx.state.mm.games[gm.mmIdx];
   g.s = [res.home.score, res.away.score];
-  if (g.a === ctx.state.schoolId || g.b === ctx.state.schoolId) ctx.state.mm.box[gm.mmIdx] = compactResult(res);
+  if (g.a === ctx.state.schoolId || g.b === ctx.state.schoolId) ctx.state.mm.box[gm.mmIdx] = compactResult(res, true);
   // tournament lines for the March Madness awards: pid -> [sid, GP, PTS, REB, AST, STL, BLK, FGM, FGA, TPM, TPA, FTM, FTA, lastRound]
   const ps = (ctx.state.mm.ps ||= {});
   for (const side of [res.home, res.away]) for (const p of side.players) {

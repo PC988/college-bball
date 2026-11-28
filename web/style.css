@@ -510,3 +510,13 @@ body.sheet-over-live .scrim { z-index: 31; }
 .stand.hof { table-layout: fixed; }
 .stand.hof th:nth-child(1) { width: 26px; } .stand.hof th:nth-child(3) { width: 54px; } .stand.hof th:nth-child(4) { width: 58px; }
 .stand.hof td { white-space: normal; vertical-align: middle; }
+/* shot chart */
+.shotsel { width: 100%; font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--navy2); color: var(--ink); margin: 6px 0 8px; }
+.court { display: block; width: 100%; max-width: 460px; margin: 10px auto 4px; }
+.court .fl { fill: #f3e3c6; stroke: #b98d55; stroke-width: 3; }
+.court .ln { fill: none; stroke: #b98d55; stroke-width: 3; }
+.court .rim { fill: none; stroke: #e0662c; stroke-width: 3; }
+.court .mk { fill: #1f9d55; stroke: #fff; stroke-width: 2; }
+.court .ms { stroke: #d6453c; stroke-width: 4; stroke-linecap: round; }
+.zones { width: 100%; border-collapse: collapse; text-align: center; font-size: 13px; margin-top: 4px; }
+.zones td { padding: 6px 2px; } .zones b { font-size: 16px; }

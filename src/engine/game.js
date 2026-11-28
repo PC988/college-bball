@@ -499,7 +499,7 @@ export class Game {
       if (r.chance(clamp(pBlk, 0, 0.25))) {
         shooter.line.FGA++;
         blocker.line.BLK++;
-        this.emit(offKey, 'block', `${shooter.name}'s ${label} is blocked by ${blocker.name}.`, { pid: shooter.p.id, blk: blocker.p.id, note: this.interactive ? `${blocker.p.ln} ${blocker.line.BLK} blk` : undefined });
+        this.emit(offKey, 'block', `${shooter.name}'s ${label} is blocked by ${blocker.name}.`, { pid: shooter.p.id, shot: type, blk: blocker.p.id, note: this.interactive ? `${blocker.p.ln} ${blocker.line.BLK} blk` : undefined });
         return 'miss';
       }
     }

@@ -8,7 +8,7 @@ import { hsStats, HS_GAMES } from '../src/hsstats.js';
 import { statRows, leaders, computeAwards, LEADER_CATS } from '../src/awards.js';
 import { DRILLS, TRAIN_COST, xpMult } from '../src/training.js';
 import { estimateOvr, TRAIT_KEYS, TRAIT_LABELS } from '../src/recruiting/scouting.js';
-import { standings, powerRatings, expandResult } from '../src/season.js';
+import { standings, powerRatings, expandResult, gameShots } from '../src/season.js';
 import { pickStarters, TARGET_MIN } from '../src/engine/game.js';
 import { teamOvr } from '../src/roster.js';
 import { makeRng } from '../src/rng.js';
@@ -808,8 +808,11 @@ function bindSheet(body) {
   on('[data-sgtab]', (b) => { ui.sgTab = b.dataset.v; openSheet('signings', 'full'); });
   on('[data-endday]', () => onEndDay());
   on('[data-watchnow]', () => { ui.confirmAutoSim = false; closeSheet(); startLive(); });
-  on('[data-box]', (b) => { ui.boxGi = Number(b.dataset.box); ui.boxRes = null; ui.boxSide = null; openSheet('box', 'full'); });
+  on('[data-box]', (b) => { ui.boxGi = Number(b.dataset.box); ui.boxRes = null; ui.boxSide = null; ui.boxShot = {}; openSheet('box', 'full'); });
   on('[data-boxside]', (b) => { ui.boxSide = b.dataset.boxside; renderSheet(); });
+  on('[data-boxtab]', (b) => { ui.boxTab = b.dataset.v; renderSheet(); });
+  on('[data-bshot-half]', (b) => { (ui.boxShot ||= {}).half = b.dataset.v; renderSheet(); });
+  body.querySelectorAll('[data-bshot-who]').forEach((el) => (el.onchange = () => { (ui.boxShot ||= {}).who = el.value; renderSheet(); }));
   on('[data-goto]', (b) => { closeSheet(); setTab(b.dataset.goto); });
   on('[data-new2]', (b) => { b.textContent = 'Tap again to delete your save'; b.onclick = () => { store.remove(); location.reload(); }; });
   on('[data-exact]', (b) => { ui.pickExact = false; act(C.scoutExact(ctx, ui.selRecruit, b.dataset.exact)); });
@@ -990,14 +993,14 @@ function bindPage(root) {
   const on = (sel, fn) => root.querySelectorAll(sel).forEach((b) => (b.onclick = () => fn(b)));
   on('[data-tac]', (b) => { const k = b.dataset.tac; C.setTactics(ctx, k === 'depth' ? { depth: Number(b.dataset.v), minutes: null } : { [k]: b.dataset.v }); save(); render(); });
   on('[data-watch]', () => startLive());
-  on('[data-quick]', () => { const gm = C.prepareUserGame(ctx); gm.sim(); C.finishUserGame(ctx, gm); save(); ui.boxGi = gm.gi; ui.boxRes = ctx.lastGame; ui.boxSide = null; openSheet('box', 'full'); render(); });
-  on('[data-lastbox]', () => { ui.boxGi = C.todaysGame(ctx).gi; ui.boxRes = null; ui.boxSide = null; openSheet('box', 'full'); });
-  on('[data-box]', (b) => { ui.boxGi = Number(b.dataset.box); ui.boxRes = null; ui.boxSide = null; openSheet('box', 'full'); });
+  on('[data-quick]', () => { const gm = C.prepareUserGame(ctx); gm.sim(); C.finishUserGame(ctx, gm); save(); ui.boxGi = gm.gi; ui.boxRes = ctx.lastGame; ui.boxSide = null; ui.boxShot = {}; openSheet('box', 'full'); render(); });
+  on('[data-lastbox]', () => { ui.boxGi = C.todaysGame(ctx).gi; ui.boxRes = null; ui.boxSide = null; ui.boxShot = {}; openSheet('box', 'full'); });
+  on('[data-box]', (b) => { ui.boxGi = Number(b.dataset.box); ui.boxRes = null; ui.boxSide = null; ui.boxShot = {}; openSheet('box', 'full'); });
   on('[data-endday]', () => onEndDay());
-  on('[data-mmquick]', () => { const gm = C.prepareMMGame(ctx); gm.sim(); C.finishMMGame(ctx, gm); save(); ui.boxRes = ctx.lastGame; ui.boxSide = null; openSheet('box', 'full'); render(); });
+  on('[data-mmquick]', () => { const gm = C.prepareMMGame(ctx); gm.sim(); C.finishMMGame(ctx, gm); save(); ui.boxRes = ctx.lastGame; ui.boxSide = null; ui.boxShot = {}; openSheet('box', 'full'); render(); });
   on('[data-mmround]', () => { const r = ctx.state.mm.round; act(C.simMMRound(ctx)); ui.mmR = null; if (ctx.state.mm.champ || r !== ctx.state.mm.round) openBracket(true); });
   on('[data-mmall]', () => { act(C.simMMAll(ctx)); ui.mmR = 6; openBracket(true); });
-  on('[data-mmbox]', (b) => { ui.boxRes = mmBox(ctx, Number(b.dataset.mmbox)); ui.boxSide = null; if (ui.boxRes) openSheet('box', 'full'); });
+  on('[data-mmbox]', (b) => { ui.boxRes = mmBox(ctx, Number(b.dataset.mmbox)); ui.boxSide = null; ui.boxShot = {}; if (ui.boxRes) openSheet('box', 'full'); });
   on('[data-bracket]', () => openBracket());
   on('[data-mmr]', (b) => { ui.mmR = Number(b.dataset.mmr); render(); });
   on('[data-stay]', (b) => act(C.convinceToStay(ctx, b.dataset.stay)));
@@ -1249,7 +1252,10 @@ function sheetBox() {
   const cols = [['MIN', (p) => p.MIN], ['PTS', (p) => p.PTS], ['REB', (p) => p.ORB + p.DRB], ['AST', (p) => p.AST], ['FG', (p) => `${p.FGM}-${p.FGA}`], ['3P', (p) => `${p.TPM}-${p.TPA}`], ['FT', (p) => `${p.FTM}-${p.FTA}`], ['STL', (p) => p.STL], ['BLK', (p) => p.BLK], ['TO', (p) => p.TO], ['PF', (p) => p.PF], ['+/-', (p) => (p.PM > 0 ? '+' : '') + p.PM]];
   const pct = (m, a) => (a ? Math.round((m / a) * 100) : 0);
   const t = { ...s.totals, MIN: Math.round(s.totals.SEC / 60) };
-  return `<h2>${esc(res.away.abbr)} ${res.away.score}, ${esc(res.home.abbr)} ${res.home.score}${res.periods > 2 ? ` <span class="muted">(${res.periods === 3 ? 'OT' : res.periods - 2 + 'OT'})</span>` : ''}</h2>
+  const head = `<h2>${esc(res.away.abbr)} ${res.away.score}, ${esc(res.home.abbr)} ${res.home.score}${res.periods > 2 ? ` <span class="muted">(${res.periods === 3 ? 'OT' : res.periods - 2 + 'OT'})</span>` : ''}</h2>
+    ${segHtml('bt', [['box', 'Box score'], ['shots', 'Shot chart']], ui.boxTab || 'box', 'data-boxtab')}`;
+  if (ui.boxTab === 'shots') return head + shotChartHtml(res, ui.boxShot ||= {}, 'data-bshot');
+  return `${head}
     <div class="seg">${['away', 'home'].map((k) => `<button data-boxside="${k}" class="${k === sideKey ? 'on' : ''}">${esc(res[k].name)}</button>`).join('')}</div>
     <div class="note">FG ${pct(t.FGM, t.FGA)}% · 3P ${pct(t.TPM, t.TPA)}% · FT ${pct(t.FTM, t.FTA)}% · TO ${t.TO}</div>
     <div class="scroll" style="margin-top:8px"><table class="box"><tr><th>Player</th>${cols.map(([h]) => `<th>${h}</th>`).join('')}</tr>
@@ -1257,6 +1263,42 @@ function sheetBox() {
     <tr class="tot"><td>Team</td>${cols.map(([h, f]) => `<td>${h === '+/-' ? '' : f(t)}</td>`).join('')}</tr></table></div>`;
 }
 
+// ---------- shot chart ----------
+// Half court, 10 units per foot, baseline at the top. The engine knows each shot's zone, not its spot,
+// so a spot inside the zone is picked from a hash of the shot (same shot, same dot, every time).
+function shotHash(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 10000) / 10000; }; }
+function shotSpot(sh, i) {
+  const r = shotHash(`${sh.pid}:${i}:${sh.type}`), bx = 250, by = 52;
+  const at = (d, deg) => [bx + d * Math.sin((deg * Math.PI) / 180), Math.max(8, by + d * Math.cos((deg * Math.PI) / 180))];
+  if (sh.type === 'rim') return at(4 + r() * 32, -160 + r() * 320);
+  if (sh.type === 'post') return at(45 + r() * 65, -70 + r() * 140);
+  if (sh.type === 'mid') return at(115 + r() * 90, -88 + r() * 176);
+  if (r() < 0.18) { const side = r() < 0.5 ? -1 : 1; return [bx + side * (226 + r() * 14), 10 + r() * 80]; } // corner three
+  return at(228 + r() * 34, -68 + r() * 136);
+}
+const SHOT_ZONES = [['rim', 'At the rim'], ['post', 'Paint'], ['mid', 'Mid-range'], ['three', '3-point']];
+function shotChartHtml(res, sel, attr) {
+  const all = gameShots(res);
+  if (!all) return '<div class="note">Shot charts are recorded for games played from v1.11 on.</div>';
+  const mine = res.home.schoolId === ctx.state.schoolId ? 'home' : 'away';
+  const who = sel.who || `team:${mine}`, half = sel.half || 'full';
+  const [kind, id] = who.split(':');
+  const shots = all.map((x, i) => ({ ...x, i })).filter((x) => (kind === 'team' ? x.side === id : x.pid === id) && (half === 'full' || (half === '1' ? x.period === 1 : x.period >= 2)));
+  const opts = ['away', 'home'].map((k) => `<optgroup label="${esc(res[k].name)}"><option value="team:${k}" ${who === `team:${k}` ? 'selected' : ''}>Whole team · ${esc(res[k].abbr || res[k].name)}</option>${res[k].players.filter((p) => p.FGA).map((p) => `<option value="p:${p.id}" ${who === `p:${p.id}` ? 'selected' : ''}>${esc(p.name)} · ${p.FGM}-${p.FGA}</option>`).join('')}</optgroup>`).join('');
+  const dots = shots.map((x) => { const [cx, cy] = shotSpot(x, x.i); return x.made ? `<circle cx="${cx.toFixed(0)}" cy="${cy.toFixed(0)}" r="9" class="mk"/>` : `<path d="M${(cx - 7).toFixed(0)} ${(cy - 7).toFixed(0)}l14 14m0 -14l-14 14" class="ms"/>`; }).join('');
+  const zone = SHOT_ZONES.map(([k, l]) => { const z = shots.filter((x) => x.type === k), m = z.filter((x) => x.made).length; return `<td><div class="muted">${l}</div><b>${m}-${z.length}</b><div class="muted">${z.length ? Math.round((m / z.length) * 100) + '%' : '-'}</div></td>`; }).join('');
+  const made = shots.filter((x) => x.made).length;
+  return `<select class="shotsel" ${attr}-who>${opts}</select>
+    ${segHtml('half', [['1', '1st half'], ['2', '2nd half'], ['full', 'Full game']], half, `${attr}-half`)}
+    <svg class="court" viewBox="0 0 500 470" role="img" aria-label="Shot chart">
+      <rect x="2" y="2" width="496" height="466" rx="6" class="fl"/>
+      <rect x="190" y="2" width="120" height="190" class="ln"/><circle cx="250" cy="192" r="60" class="ln"/>
+      <path d="M33 2 V95 A221 221 0 0 0 467 95 V2" class="ln"/><path d="M210 52 A40 40 0 0 0 290 52" class="ln"/>
+      <line x1="220" y1="40" x2="280" y2="40" class="ln"/><circle cx="250" cy="52" r="8" class="rim"/>
+      <path d="M190 468 A60 60 0 0 1 310 468" class="ln"/>${dots}</svg>
+    <div class="note" style="text-align:center"><b>${made}-${shots.length} FG${shots.length ? ` · ${Math.round((made / shots.length) * 100)}%` : ''}</b> · ● make · ✕ miss${half === '2' && res.periods > 2 ? ' · 2nd half includes OT' : ''}</div>
+    <table class="zones"><tr>${zone}</tr></table>`;
+}
 // ---------- bracket ----------
 function openBracket(stay) { ui.seasonView = 'mm'; if (!stay || ctx.state.mm.champ) setTab('season'); else render(); }
 // Most Outstanding Player + All-Tournament Team, once the title game is over.
@@ -1493,7 +1535,7 @@ function openPlayerCard(pid) {
 const live = { gm: null, speed: 1, timer: null, done: false, view: 'pbp', hot: {}, faces: {}, pick: null };
 function startLive(gmIn = null, kind = 'game') {
   const gm = gmIn || (ctx.state.over ? C.prepareMMGame(ctx) : C.prepareUserGame(ctx));
-  Object.assign(live, { gm, kind, speed: 1, done: false, view: 'pbp', hot: {}, faces: {}, pick: null });
+  Object.assign(live, { gm, kind, speed: 1, done: false, view: 'pbp', hot: {}, faces: {}, pick: null, shot: {}, shotT: 0 });
   gm.interactive = true;
   $('live').classList.remove('hidden');
   $('feed').innerHTML = '';
@@ -1505,7 +1547,15 @@ function markHot(evs) {
   const now = Date.now();
   for (const e of evs) if ((e.type === 'score' || e.type === 'ft') && e.pid) live.hot[e.pid] = now;
 }
+function renderLiveShots() {
+  const el = $('lshots');
+  const res = live.gm.result();
+  el.innerHTML = shotChartHtml(res, live.shot ||= {}, 'data-lshot');
+  el.querySelectorAll('[data-lshot-half]').forEach((b) => (b.onclick = () => { live.shot.half = b.dataset.v; renderLiveShots(); }));
+  el.querySelectorAll('[data-lshot-who]').forEach((x) => (x.onchange = () => { live.shot.who = x.value; renderLiveShots(); }));
+}
 function renderLiveBox() {
+  if (live.view === 'shots') { if (!live.shotT || Date.now() - live.shotT > 1500 || live.done) { live.shotT = Date.now(); renderLiveShots(); } return; }
   if (live.view !== 'box') return;
   const gm = live.gm;
   const now = Date.now();
@@ -1650,13 +1700,15 @@ function renderLive() {
   const gm = live.gm;
   const tac = gm.sides[gm.userSide].tactics;
   renderScore();
-  const views = [['pbp', 'Play-by-play'], ['box', 'Box score']].concat(live.done || gm.exhibition ? [] : [['coach', 'Coach']]);
+  const views = [['pbp', 'Play-by-play'], ['box', 'Box score'], ['shots', 'Shots']].concat(live.done || gm.exhibition ? [] : [['coach', 'Coach']]);
   if (live.done && live.view === 'coach') live.view = 'box';
   $('liveCtrl').innerHTML = `${live.done ? '' : segHtml('speed', [[0, 'Pause'], [1, '1x'], [2, '2x'], [4, '4x'], [16, 'Fast']], live.speed, 'data-speed')}${segHtml('lv', views, live.view, 'data-lview')}`;
   $('lcoach').innerHTML = live.done ? '' : `<div class="sec">Tempo</div>${segHtml('tempo', TEMPO, tac.tempo, 'data-ltac')}<div class="sec">Defense</div>${segHtml('defense', DEF, tac.defense, 'data-ltac')}<div class="sec">Offense focus</div>${segHtml('focus', FOCUS, tac.focus, 'data-ltac')}<div class="note">Changes take effect on the next possession.</div>`;
   $('feed').classList.toggle('hidden', live.view !== 'pbp');
   $('lbox').classList.toggle('hidden', live.view !== 'box');
   $('lcoach').classList.toggle('hidden', live.view !== 'coach');
+  $('lshots').classList.toggle('hidden', live.view !== 'shots');
+  live.shotT = 0;
   renderLiveBox();
   $('liveCtrl').querySelectorAll('[data-lview]').forEach((b) => (b.onclick = () => { live.view = b.dataset.v; renderLive(); }));
   $('liveFoot').innerHTML = live.done
@@ -1670,7 +1722,7 @@ function renderLive() {
     renderLive();
   }));
   if ($('lSkip')) $('lSkip').onclick = () => { clearTimeout(live.timer); gm.interactive = false; if (gm.waiting) gm.callPlay(null); $('crit').classList.add('hidden'); const evs = []; while (!gm.done) evs.push(...gm.step()); live.hot = {}; addFeed(evs.filter((e) => e.type !== 'sub')); finishLive(); };
-  if ($('lBox')) $('lBox').onclick = () => { $('live').classList.add('hidden'); ui.boxGi = gm.gi; ui.boxRes = ctx.lastGame; ui.boxSide = null; openSheet('box', 'full'); };
+  if ($('lBox')) $('lBox').onclick = () => { $('live').classList.add('hidden'); ui.boxGi = gm.gi; ui.boxRes = ctx.lastGame; ui.boxSide = null; ui.boxShot = {}; openSheet('box', 'full'); };
   if ($('lDone')) $('lDone').onclick = () => { $('live').classList.add('hidden'); closeSheet(); render(); };
 }
 function finishLive() {
