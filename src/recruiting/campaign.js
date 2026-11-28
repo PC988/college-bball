@@ -128,7 +128,7 @@ export const DEFAULT_TACTICS = { tempo: 'normal', defense: 'man', focus: 'balanc
 
 function freshSeasonState(base) {
   return {
-    v: 2, gainV: 2, seed: base.seed, schoolId: base.schoolId, scout: base.scout, year: base.year, rosters: base.rosters || null,
+    v: 2, gainV: 3, seed: base.seed, schoolId: base.schoolId, scout: base.scout, year: base.year, rosters: base.rosters || null,
     tactics: base.tactics || { ...DEFAULT_TACTICS }, history: base.history || [],
     day: 1, ap: AP_PER_DAY, apMax: AP_PER_DAY, lodgingDue: 0, gamePlayed: false,
     scoutAt: null, gameToday: null, burned: [], knowledge: {}, interest: {}, offers: {}, commits: {},
@@ -207,13 +207,14 @@ export const loadCampaign = (json) => migrateGain(hydrate(JSON.parse(json)));
 // scale it once by the same factor your own interest always had, so the race in progress stays fair.
 function migrateGain(ctx) {
   const st = ctx.state;
-  if (st.gainV === 2) return ctx;
+  if (st.gainV === 3) return ctx;
   for (const [rid, m] of Object.entries(st.interest || {})) {
     const r = ctx.byId[rid];
     if (!r) continue;
-    for (const sid of Object.keys(m)) if (sid !== st.schoolId) m[sid] = Math.round(m[sid] * GAIN(r) * 10) / 10;
+    // before v1.12 rivals skipped GAIN; v1.13 scales everyone's numbers by SCALE (same factor as the commit bars)
+    for (const sid of Object.keys(m)) m[sid] = Math.min(100, Math.round(m[sid] * (st.gainV !== 2 && sid !== st.schoolId ? GAIN(r) : 1) * SCALE(r) * 10) / 10);
   }
-  st.gainV = 2;
+  st.gainV = 3;
   return ctx;
 }
 
@@ -258,12 +259,18 @@ export const isBurned = (ctx, rid) => (ctx.state.burned || []).includes(rid);
 export const INTEREST = { visit: 10, game: 8, event: 4, phone: 3, film: 1, exact: 1, offer: 9 };
 // Every program, yours and every rival, gains interest at the same rate (v1.12: rivals used to gain ~2.5x faster on elite kids).
 const GAIN = (r) => 0.8 * (r.rank <= 25 ? 0.5 : r.rank <= 50 ? 0.8 : 1);
+// v1.13: bigger, readable numbers. Every school's gains on a recruit are multiplied by the same SCALE as his commit
+// bar, so races and timing are unchanged but one good visit shows up as real progress.
+const SCALE = (r) => (r.rank <= 25 ? 2 : r.rank <= 150 ? 1.5 : 1.25);
+// How much fit moves interest gains: +-15% at most, same for every program (fit itself runs 0.05 to 2+).
+// Fit still decides close races (tie-breaks) and who a recruit lists as favorites.
+export const pull = (r, s) => clamp(Math.sqrt(fit(r, s)), 0.85, 1.15);
 // Elite recruits are hard to move: everyone's actions count for less, and they commit later.
 export const hardness = (r) => (r.rank <= 25 ? 0.4 : r.rank <= 50 ? 0.55 : r.rank <= 150 ? 0.8 : 1);
-export const commitBar = (r) => (r.rank <= 25 ? 40 : r.rank <= 50 ? 52 : r.rank <= 150 ? 40 : 12);
+export const commitBar = (r) => (r.rank <= 25 ? 80 : r.rank <= 50 ? 78 : r.rank <= 150 ? 60 : 15);
 function addInterest(ctx, rid, schoolId, amount) {
   const r = ctx.byId[rid];
-  amount *= hardness(r) * GAIN(r); // everyone moves an elite kid slowly, at the same rate
+  amount *= hardness(r) * GAIN(r) * SCALE(r); // everyone moves an elite kid slowly, at the same rate
   if (schoolId === ctx.state.schoolId && isBurned(ctx, rid)) return;
   const m = (ctx.state.interest[rid] ||= {});
   m[schoolId] = Math.min(100, Math.round(((m[schoolId] || 0) + amount) * 10) / 10);
@@ -342,7 +349,7 @@ export function watchFilm(ctx, rid) {
   const err = spend(ctx, cost); if (err) return fail(err);
   const r = ctx.byId[rid];
   const picks = applyFilm(rngFor(ctx, 'film' + rid), touchKnowledge(ctx, rid), r, ctx.state.scout.accuracy);
-  addInterest(ctx, rid, ctx.state.schoolId, INTEREST.film * fit(r, ctx.school));
+  addInterest(ctx, rid, ctx.state.schoolId, INTEREST.film * pull(r, ctx.school));
   const what = picks.length ? `Got a read on ${picks.map((s) => SKILL_LABEL[s]).join(' and ')}.` : 'Nothing new: every skill is already exact.';
   return okMsg(ctx, `Watched game film on ${fullName(r)} (${cost} AP). ${what}`, 'scout');
 }
@@ -354,7 +361,7 @@ export function scoutExact(ctx, rid, skill) {
   const err = spend(ctx, COSTS.exact); if (err) return fail(err);
   const r = ctx.byId[rid];
   applyExact(k, r, skill);
-  addInterest(ctx, rid, ctx.state.schoolId, INTEREST.exact * fit(r, ctx.school));
+  addInterest(ctx, rid, ctx.state.schoolId, INTEREST.exact * pull(r, ctx.school));
   return okMsg(ctx, `Scouted ${fullName(r)}'s ${SKILL_LABEL[skill]} (${COSTS.exact} AP): ${r.skills[skill].cur}/100.`, 'scout');
 }
 
@@ -369,7 +376,7 @@ export function attendGame(ctx, gameId) {
     const k = touchKnowledge(ctx, id);
     applyLive(rng, k, ctx.byId[id], ctx.state.scout.accuracy);
     k.at = `${g.away} at ${g.home}, day ${ctx.state.day}`;
-    addInterest(ctx, id, ctx.state.schoolId, INTEREST.game * fit(ctx.byId[id], ctx.school));
+    addInterest(ctx, id, ctx.state.schoolId, INTEREST.game * pull(ctx.byId[id], ctx.school));
   }
   return okMsg(ctx, `Scouted ${g.away} at ${g.home} in person (${g.cost} AP). Potential revealed for ${g.players.map((id) => fullName(ctx.byId[id])).join(', ')}.`, 'scout');
 }
@@ -383,7 +390,7 @@ export function attendEvent(ctx) {
   const err = spend(ctx, cost); if (err) return fail(err);
   ctx.state.gameToday = ev.id;
   const rng = rngFor(ctx, 'event');
-  for (const id of eventPlayers(ctx, ev)) { const k = touchKnowledge(ctx, id); applyLive(rng, k, ctx.byId[id], ctx.state.scout.accuracy, ev.strength); k.at = `${ev.name}, day ${ctx.state.day}`; addInterest(ctx, id, ctx.state.schoolId, INTEREST.event * fit(ctx.byId[id], ctx.school)); }
+  for (const id of eventPlayers(ctx, ev)) { const k = touchKnowledge(ctx, id); applyLive(rng, k, ctx.byId[id], ctx.state.scout.accuracy, ev.strength); k.at = `${ev.name}, day ${ctx.state.day}`; addInterest(ctx, id, ctx.state.schoolId, INTEREST.event * pull(ctx.byId[id], ctx.school)); }
   return okMsg(ctx, `Scouted the ${ev.name} (${cost} AP). Potential revealed for the top ${ev.top} recruits in the class.`, 'event');
 }
 
@@ -420,7 +427,7 @@ export function phoneCall(ctx, rid) {
   const rng = rngFor(ctx, 'phone' + rid);
   const n = rng.chance(ctx.state.scout.charisma / 250) ? 2 : 1;
   const got = revealTraits(rng, touchKnowledge(ctx, rid), n);
-  addInterest(ctx, rid, ctx.state.schoolId, (INTEREST.phone * fit(r, ctx.school)) / (1 + (calls[rid] - 1) / 2));
+  addInterest(ctx, rid, ctx.state.schoolId, (INTEREST.phone * pull(r, ctx.school)) / (1 + (calls[rid] - 1) / 2));
   const what = got.length ? ` Learned: ${got.map((t) => `${TRAIT_LABELS[t]}: ${describeTrait(t, r.traits[t])}`).join('; ')}.` : ' Nothing new learned.';
   return okMsg(ctx, `Phone call with ${fullName(r)} (1 AP).${what}`, 'contact');
 }
@@ -437,7 +444,7 @@ export function homeVisit(ctx, rid) {
   const rng = rngFor(ctx, 'visit' + rid);
   const n = 2 + (rng.chance(ctx.state.scout.charisma / 120) ? 1 : 0);
   const got = revealTraits(rng, touchKnowledge(ctx, rid), n);
-  const gain = INTEREST.visit * fit(r, ctx.school) * (0.8 + ctx.state.scout.charisma / 250);
+  const gain = INTEREST.visit * pull(r, ctx.school) * (0.8 + ctx.state.scout.charisma / 250);
   addInterest(ctx, rid, ctx.state.schoolId, gain);
   const what = got.length ? ` Learned: ${got.map((t) => `${TRAIT_LABELS[t]}: ${describeTrait(t, r.traits[t])}`).join('; ')}.` : '';
   return okMsg(ctx, `Home visit with ${fullName(r)} (${cost} AP). Interest up.${what}`, 'contact');
@@ -453,7 +460,7 @@ export function makeOffer(ctx, rid) {
   if (userOffers(ctx).filter((id) => !ctx.state.commits[id]).length >= MAX_OFFERS) return fail(`Offer limit reached (${MAX_OFFERS} outstanding).`);
   const err = spend(ctx, COSTS.offer); if (err) return fail(err);
   offers.push(ctx.state.schoolId);
-  addInterest(ctx, rid, ctx.state.schoolId, INTEREST.offer * fit(ctx.byId[rid], ctx.school));
+  addInterest(ctx, rid, ctx.state.schoolId, INTEREST.offer * pull(ctx.byId[rid], ctx.school));
   return okMsg(ctx, `Offered a scholarship to ${fullName(ctx.byId[rid])} (1 AP).`, 'offer');
 }
 
@@ -545,7 +552,7 @@ function seedFavorites(ctx) {
   const ids = Object.keys(ctx.world.teams);
   for (const r of ctx.recruits) {
     const rng = makeRng(`${ctx.state.seed}:fav:${r.id}`);
-    const scored = ids.map((sid) => [sid, fit(r, ctx.schools[sid]) * (0.6 + rng.next() * 0.8)]).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    const scored = ids.map((sid) => [sid, pull(r, ctx.schools[sid]) * (0.6 + rng.next() * 0.8)]).sort((a, b) => b[1] - a[1]).slice(0, 3);
     scored.forEach(([sid, f], i) => addInterest(ctx, r.id, sid, (22 - i * 6) * f));
   }
 }
@@ -576,7 +583,7 @@ function offerWave(ctx, sid, outCount) {
     const r = rng.weighted(pool, pool.map((x) => Math.sqrt(fit(x, s) / prestigeGate(x, s)) * Math.pow(hi / x.rank, 0.9)));
     pool.splice(pool.indexOf(r), 1);
     (ctx.state.offers[r.id] ||= []).push(sid);
-    addInterest(ctx, r.id, sid, 7 * fit(r, s));
+    addInterest(ctx, r.id, sid, 7 * pull(r, s));
     if ((r.rank <= 25 && starsKnown(ctx)) || ctx.state.offers[r.id].includes(ctx.state.schoolId)) log(ctx, `${s.name} offered ${tag(ctx, r)}${fullName(r)} (${r.pos}, ${r.state}).`, 'rival');
   }
 }
@@ -610,7 +617,7 @@ function lateSuitors(ctx) {
       if (add <= 0) break;
       if (offers.includes(s.id) || !room(s.id)) continue;
       offers.push(s.id);
-      addInterest(ctx, r.id, s.id, 25 * fit(r, s));
+      addInterest(ctx, r.id, s.id, 25 * pull(r, s));
       if (starsKnown(ctx) && (r.rank <= 25 || offers.includes(user))) log(ctx, `${s.name} offered ${tag(ctx, r)}${fullName(r)} (${r.pos}, ${r.state}).`, 'rival');
       add--;
     }
@@ -635,7 +642,7 @@ function topUpElite(ctx, commitCount) {
       if (offers.includes(s.id) || !hasRoom(s.id) || !canLand(ctx, s.id, r)) continue;
       if (r.rank <= 25 && s.tier === 'MM') continue;
       offers.push(s.id);
-      addInterest(ctx, r.id, s.id, 7 * fit(r, s));
+      addInterest(ctx, r.id, s.id, 7 * pull(r, s));
       if (starsKnown(ctx) && (r.rank <= 25 || offers.includes(user))) log(ctx, `${s.name} offered ${tag(ctx, r)}${fullName(r)} (${r.pos}, ${r.state}).`, 'rival');
       add--;
     }
@@ -669,10 +676,10 @@ function runAI(ctx) {
       const offers = (ctx.state.offers[id] ||= []);
       if (!offers.includes(sid) && rng.chance(0.5)) {
         offers.push(sid);
-        addInterest(ctx, id, sid, 12 * fit(r, s));
+        addInterest(ctx, id, sid, 12 * pull(r, s));
         if ((r.rank <= 25 && starsKnown(ctx)) || offers.includes(ctx.state.schoolId)) log(ctx, `${s.name} offered ${tag(ctx, r)}${fullName(r)} (${r.pos}, ${r.state}).`, 'rival');
       }
-      if (r.rank > 50) addInterest(ctx, id, sid, (budget / focus.length) * 1.6 * fit(r, s) * (0.7 + rng.next() * 0.6));
+      if (r.rank > 50) addInterest(ctx, id, sid, (budget / focus.length) * 1.6 * pull(r, s) * (0.7 + rng.next() * 0.6));
     }
   }
   eliteSuitors(ctx, commitCount);
@@ -689,8 +696,8 @@ function eliteSuitors(ctx, commitCount) {
       .map((sid) => ctx.schools[sid]).sort((a, b) => b.prestige * fit(r, b) - a.prestige * fit(r, a)).slice(0, 5);
     const rng = makeRng(`${ctx.state.seed}:suit:${r.id}:${ctx.state.day}`);
     for (const s of suitors) {
-      // about what you can add to one kid in a day (home visit + call, ~12), a little more for the best programs, never a lot
-      const pace = 12 * (0.85 + s.prestige / 400) * clamp(fit(r, s), 0.8, 1.2) * (0.85 + rng.next() * 0.3); // x hardness, gain inside addInterest
+      // about what you can add to one kid in a day (home visit + call, ~10), the best programs about 10% more, never a lot
+      const pace = 10.5 * (0.9 + s.prestige / 500) * pull(r, s) * (0.85 + rng.next() * 0.3); // x hardness, gain inside addInterest
       addInterest(ctx, r.id, s.id, pace);
     }
   }
@@ -734,7 +741,7 @@ function resolveCommitments(ctx, signingDay) {
     });
     if (!open.length) continue;
     // offered schools get a little passive interest each day
-    for (const sid of open) addInterest(ctx, rid, sid, 0.4 * fit(r, ctx.schools[sid]));
+    for (const sid of open) addInterest(ctx, rid, sid, 0.4 * pull(r, ctx.schools[sid]));
     const ranked = open.map((sid) => [sid, m[sid] || 0]).sort((a, b) => b[1] - a[1]);
     let [lead, lv] = ranked[0];
     let sv = ranked[1]?.[1] || 0;
