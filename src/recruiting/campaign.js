@@ -128,7 +128,7 @@ export const DEFAULT_TACTICS = { tempo: 'normal', defense: 'man', focus: 'balanc
 
 function freshSeasonState(base) {
   return {
-    v: 2, seed: base.seed, schoolId: base.schoolId, scout: base.scout, year: base.year, rosters: base.rosters || null,
+    v: 2, gainV: 2, seed: base.seed, schoolId: base.schoolId, scout: base.scout, year: base.year, rosters: base.rosters || null,
     tactics: base.tactics || { ...DEFAULT_TACTICS }, history: base.history || [],
     day: 1, ap: AP_PER_DAY, apMax: AP_PER_DAY, lodgingDue: 0, gamePlayed: false,
     scoutAt: null, gameToday: null, burned: [], knowledge: {}, interest: {}, offers: {}, commits: {},
@@ -202,7 +202,20 @@ export function hydrate(state) {
 }
 
 export const serializeCampaign = (ctx) => JSON.stringify(ctx.state);
-export const loadCampaign = (json) => hydrate(JSON.parse(json));
+export const loadCampaign = (json) => migrateGain(hydrate(JSON.parse(json)));
+// v1.12: rivals now gain interest at your rate. Saves from before carry rival interest built at the old, faster rate:
+// scale it once by the same factor your own interest always had, so the race in progress stays fair.
+function migrateGain(ctx) {
+  const st = ctx.state;
+  if (st.gainV === 2) return ctx;
+  for (const [rid, m] of Object.entries(st.interest || {})) {
+    const r = ctx.byId[rid];
+    if (!r) continue;
+    for (const sid of Object.keys(m)) if (sid !== st.schoolId) m[sid] = Math.round(m[sid] * GAIN(r) * 10) / 10;
+  }
+  st.gainV = 2;
+  return ctx;
+}
 
 function log(ctx, text, kind = 'info') {
   ctx.state.log.unshift({ day: ctx.state.day, text, kind });
@@ -243,14 +256,15 @@ function touchKnowledge(ctx, rid) {
 export const isBurned = (ctx, rid) => (ctx.state.burned || []).includes(rid);
 // Interest your staff earns per action (before fit and the 0.8 user factor). In person counts most.
 export const INTEREST = { visit: 10, game: 8, event: 4, phone: 3, film: 1, exact: 1, offer: 9 };
-const USER_GAIN = 0.8; // your staff is one program among many; rivals never stop
-// Elite recruits are hard to move: your actions count for less, and they only commit near 90.
+// Every program, yours and every rival, gains interest at the same rate (v1.12: rivals used to gain ~2.5x faster on elite kids).
+const GAIN = (r) => 0.8 * (r.rank <= 25 ? 0.5 : r.rank <= 50 ? 0.8 : 1);
+// Elite recruits are hard to move: everyone's actions count for less, and they commit later.
 export const hardness = (r) => (r.rank <= 25 ? 0.4 : r.rank <= 50 ? 0.55 : r.rank <= 150 ? 0.8 : 1);
-export const commitBar = (r) => (r.rank <= 25 ? 90 : r.rank <= 50 ? 80 : r.rank <= 150 ? 50 : 15);
+export const commitBar = (r) => (r.rank <= 25 ? 40 : r.rank <= 50 ? 52 : r.rank <= 150 ? 40 : 12);
 function addInterest(ctx, rid, schoolId, amount) {
   const r = ctx.byId[rid];
-  amount *= hardness(r); // everyone moves an elite kid slowly
-  if (schoolId === ctx.state.schoolId) { if (isBurned(ctx, rid)) return; amount *= USER_GAIN * (r.rank <= 25 ? 0.5 : r.rank <= 50 ? 0.8 : 1); } // you get many actions a day; rivals get one steady push
+  amount *= hardness(r) * GAIN(r); // everyone moves an elite kid slowly, at the same rate
+  if (schoolId === ctx.state.schoolId && isBurned(ctx, rid)) return;
   const m = (ctx.state.interest[rid] ||= {});
   m[schoolId] = Math.min(100, Math.round(((m[schoolId] || 0) + amount) * 10) / 10);
 }
@@ -664,8 +678,8 @@ function runAI(ctx) {
   eliteSuitors(ctx, commitCount);
 }
 
-// Top-50 recruits: the five best-fitting programs with a live offer are his serious suitors. Each climbs
-// about 4-5 interest a day, so the race peaks around 90 in the second half of the season. You have to outwork them.
+// Top-50 recruits: the five best-fitting programs with a live offer are his serious suitors. Each adds about what
+// you can add in a day (a blue blood slightly more). Rivals aren't limited by AP, so they work many kids at once.
 function eliteSuitors(ctx, commitCount) {
   const user = ctx.state.schoolId;
   for (const r of ctx.recruits.slice(0, 50)) {
@@ -675,7 +689,8 @@ function eliteSuitors(ctx, commitCount) {
       .map((sid) => ctx.schools[sid]).sort((a, b) => b.prestige * fit(r, b) - a.prestige * fit(r, a)).slice(0, 5);
     const rng = makeRng(`${ctx.state.seed}:suit:${r.id}:${ctx.state.day}`);
     for (const s of suitors) {
-      const pace = (r.rank <= 25 ? 9.5 : 8.5) * clamp(fit(r, s), 0.7, 1.4) * (0.7 + rng.next() * 0.6); // x hardness inside addInterest
+      // about what you can add to one kid in a day (home visit + call, ~12), a little more for the best programs, never a lot
+      const pace = 12 * (0.85 + s.prestige / 400) * clamp(fit(r, s), 0.8, 1.2) * (0.85 + rng.next() * 0.3); // x hardness, gain inside addInterest
       addInterest(ctx, r.id, s.id, pace);
     }
   }
